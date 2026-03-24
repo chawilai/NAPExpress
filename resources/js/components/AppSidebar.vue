@@ -27,14 +27,14 @@ const mainNavItems: NavItem[] = [
 
 const footerNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/vue-starter-kit',
-        icon: FolderGit2,
+        title: 'Support',
+        href: 'https://caremat.org',
+        icon: BookOpen,
     },
     {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#vue',
-        icon: BookOpen,
+        title: 'NAP Plus System',
+        href: 'https://napplus.nhso.go.th/nap/',
+        icon: FolderGit2,
     },
 ];
 </script>

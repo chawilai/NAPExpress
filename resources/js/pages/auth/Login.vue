@@ -1,110 +1,128 @@
 <script setup lang="ts">
-import { Form, Head } from '@inertiajs/vue3';
-import InputError from '@/components/InputError.vue';
-import PasswordInput from '@/components/PasswordInput.vue';
-import TextLink from '@/components/TextLink.vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { dashboard, login, register } from '@/routes';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
-import AuthBase from '@/layouts/AuthLayout.vue';
-import { register } from '@/routes';
-import { store } from '@/routes/login';
-import { request } from '@/routes/password';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, Mail, Lock } from 'lucide-vue-next';
 
 defineProps<{
     status?: string;
-    canResetPassword: boolean;
-    canRegister: boolean;
 }>();
+
+const form = useForm({
+    email: '',
+    password: '',
+    remember: false,
+});
+
+const submit = () => {
+    form.post(login(), {
+        onFinish: () => {
+            form.reset('password');
+        },
+    });
+};
 </script>
 
 <template>
-    <AuthBase
-        title="Log in to your account"
-        description="Enter your email and password below to log in"
-    >
-        <Head title="Log in" />
+    <Head title="Login to AutoNAP" />
 
-        <div
-            v-if="status"
-            class="mb-4 text-center text-sm font-medium text-green-600"
-        >
-            {{ status }}
+    <div class="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 font-['Outfit'] sm:px-6 lg:px-8 dark:bg-slate-950">
+        <div class="w-full max-w-md space-y-8">
+            <div class="flex flex-col items-center">
+                <Link :href="'/'" class="flex items-center gap-2">
+                    <img src="/assets/logo.png" alt="NAPExpress" class="h-12 w-auto" />
+                    <span class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">NAPExpress</span>
+                </Link>
+                <h2 class="mt-6 text-center text-3xl font-extrabold text-slate-900 dark:text-white">
+                    Welcome back
+                </h2>
+                <p class="mt-2 text-center text-sm text-slate-600 dark:text-slate-400">
+                    Sign in to your account to manage your NAP reports
+                </p>
+            </div>
+
+            <Card class="border-slate-200 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+                <form @submit.prevent="submit">
+                    <CardHeader class="space-y-1">
+                        <CardTitle class="text-2xl">Login</CardTitle>
+                        <CardDescription>
+                            Enter your email and password below to access your account.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent class="grid gap-4">
+                        <div v-if="status" class="mb-4 text-sm font-medium text-green-600 dark:text-green-400">
+                            {{ status }}
+                        </div>
+
+                        <div class="grid gap-2">
+                            <Label for="email">Email</Label>
+                            <div class="relative">
+                                <Mail class="absolute top-3 left-3 h-4 w-4 text-slate-400" />
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    placeholder="name@organization.com"
+                                    class="pl-10"
+                                    v-model="form.email"
+                                    required
+                                    autofocus
+                                    autocomplete="username"
+                                />
+                            </div>
+                            <p v-if="form.errors.email" class="text-xs text-red-500">{{ form.errors.email }}</p>
+                        </div>
+                        
+                        <div class="grid gap-2">
+                            <div class="flex items-center justify-between">
+                                <Label for="password">Password</Label>
+                                <a href="#" class="text-xs text-teal-600 hover:underline dark:text-teal-400">
+                                    Forgot password?
+                                </a>
+                            </div>
+                            <div class="relative">
+                                <Lock class="absolute top-3 left-3 h-4 w-4 text-slate-400" />
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    placeholder="••••••••"
+                                    class="pl-10"
+                                    v-model="form.password"
+                                    required
+                                    autocomplete="current-password"
+                                />
+                            </div>
+                            <p v-if="form.errors.password" class="text-xs text-red-500">{{ form.errors.password }}</p>
+                        </div>
+
+                        <div class="flex items-center space-x-2">
+                            <Checkbox id="remember" v-model:checked="form.remember" />
+                            <Label for="remember" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                Remember me
+                            </Label>
+                        </div>
+                    </CardContent>
+                    <CardFooter class="flex flex-col gap-4">
+                        <Button class="w-full h-11 bg-teal-600 hover:bg-teal-700 text-white" :disabled="form.processing">
+                            <Loader2 v-if="form.processing" class="mr-2 h-4 w-4 animate-spin" />
+                            Sign In
+                        </Button>
+                        <div class="text-center text-sm text-slate-600 dark:text-slate-400">
+                            Don't have an account?
+                            <Link :href="register()" class="font-semibold text-teal-600 hover:underline dark:text-teal-400">
+                                Register now
+                            </Link>
+                        </div>
+                    </CardFooter>
+                </form>
+            </Card>
+
+            <div class="flex justify-center text-xs text-slate-500 dark:text-slate-400">
+                &copy; 2026 NAPExpress. Fast. Accurate. Automated.
+            </div>
         </div>
-
-        <Form
-            v-bind="store.form()"
-            :reset-on-success="['password']"
-            v-slot="{ errors, processing }"
-            class="flex flex-col gap-6"
-        >
-            <div class="grid gap-6">
-                <div class="grid gap-2">
-                    <Label for="email">Email address</Label>
-                    <Input
-                        id="email"
-                        type="email"
-                        name="email"
-                        required
-                        autofocus
-                        :tabindex="1"
-                        autocomplete="email"
-                        placeholder="email@example.com"
-                    />
-                    <InputError :message="errors.email" />
-                </div>
-
-                <div class="grid gap-2">
-                    <div class="flex items-center justify-between">
-                        <Label for="password">Password</Label>
-                        <TextLink
-                            v-if="canResetPassword"
-                            :href="request()"
-                            class="text-sm"
-                            :tabindex="5"
-                        >
-                            Forgot password?
-                        </TextLink>
-                    </div>
-                    <PasswordInput
-                        id="password"
-                        name="password"
-                        required
-                        :tabindex="2"
-                        autocomplete="current-password"
-                        placeholder="Password"
-                    />
-                    <InputError :message="errors.password" />
-                </div>
-
-                <div class="flex items-center justify-between">
-                    <Label for="remember" class="flex items-center space-x-3">
-                        <Checkbox id="remember" name="remember" :tabindex="3" />
-                        <span>Remember me</span>
-                    </Label>
-                </div>
-
-                <Button
-                    type="submit"
-                    class="mt-4 w-full"
-                    :tabindex="4"
-                    :disabled="processing"
-                    data-test="login-button"
-                >
-                    <Spinner v-if="processing" />
-                    Log in
-                </Button>
-            </div>
-
-            <div
-                class="text-center text-sm text-muted-foreground"
-                v-if="canRegister"
-            >
-                Don't have an account?
-                <TextLink :href="register()" :tabindex="5">Sign up</TextLink>
-            </div>
-        </Form>
-    </AuthBase>
+    </div>
 </template>

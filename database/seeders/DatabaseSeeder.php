@@ -2,8 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Models\Organization;
 use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\ReportingJob;
+use App\Models\JobRow;
+use App\Models\ApiKey;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -13,11 +16,42 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Create an organization
+        $org = Organization::factory()->create([
+            'name' => 'CAREMAT Foundation',
+            'hcode' => '41936',
+            'verified' => true,
+        ]);
 
+        // Create an admin user
         User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+            'name' => 'Admin User',
+            'email' => 'admin@caremat.org',
+            'organization_id' => $org->id,
+            'role' => 'admin',
+        ]);
+
+        // Create a regular user
+        $user = User::factory()->create([
+            'name' => 'Clinic Staff',
+            'email' => 'staff@caremat.org',
+            'organization_id' => $org->id,
+            'role' => 'user',
+        ]);
+
+        // Create some sample jobs
+        ReportingJob::factory()->count(5)->create([
+            'organization_id' => $org->id,
+            'user_id' => $user->id,
+        ])->each(function ($job) {
+            JobRow::factory()->count(10)->create([
+                'reporting_job_id' => $job->id,
+            ]);
+        });
+
+        // Add an API key
+        ApiKey::factory()->create([
+            'organization_id' => $org->id,
         ]);
     }
 }

@@ -1,0 +1,25 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class JobRow extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'reporting_job_id',
+        'row_number',
+        'pid_masked',
+        'nap_response_code',
+        'error_message',
+    ];
+
+    public function reportingJob(): BelongsTo
+    {
+        return $this->belongsTo(ReportingJob::class);
+    }
+}
