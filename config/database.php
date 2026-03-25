@@ -64,6 +64,18 @@ return [
             ]) : [],
         ],
 
+        'carematdb' => [
+            'driver' => 'mysql',
+            'host' => env('CAREMAT_DB_HOST', '127.0.0.1'),
+            'port' => env('CAREMAT_DB_PORT', '3306'),
+            'database' => env('CAREMAT_DB_DATABASE', 'carematdb'),
+            'username' => env('CAREMAT_DB_USERNAME', 'root'),
+            'password' => env('CAREMAT_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),
