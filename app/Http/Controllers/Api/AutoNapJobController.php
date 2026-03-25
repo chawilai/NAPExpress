@@ -25,6 +25,9 @@ class AutoNapJobController extends Controller
             'items.*.source_id' => ['required'],
             'items.*.source' => ['required', 'string'],
             'items.*.id_card' => ['required', 'string', 'size:13'],
+            'items.*.rr_form' => ['required', 'array'],
+            'items.*.rr_form.pid' => ['required', 'string'],
+            'items.*.rr_form.rrttrDate' => ['required', 'string'],
         ]);
 
         $jobId = 'autonap-'.bin2hex(random_bytes(8));

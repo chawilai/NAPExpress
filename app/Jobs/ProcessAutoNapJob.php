@@ -7,7 +7,6 @@ use App\Services\NapCallbackService;
 use App\Services\NapDirectHttpService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class ProcessAutoNapJob implements ShouldQueue
@@ -18,7 +17,7 @@ class ProcessAutoNapJob implements ShouldQueue
 
     /**
      * @param  array<string, string>  $credentials
-     * @param  array<int, array<string, mixed>>  $items
+     * @param  array<int, array<string, mixed>>  $items  Each item MUST contain rr_form if available
      */
     public function __construct(
         public string $jobId,
@@ -42,23 +41,21 @@ class ProcessAutoNapJob implements ShouldQueue
         $progress?->jobStart(0, $total, $this->site);
         $progress?->connecting(0);
         $progress?->loginStart(0);
-
-        // Test login first with a dummy search
         $progress?->loginSuccess(0);
         $progress?->preparing(0, $total);
 
         // Phase 2: Process each item
         foreach ($this->items as $index => $item) {
             $i = $index + 1;
-            $pid = $item['id_card'];
+            $pid = $item['id_card'] ?? '';
             $uic = $item['uic'] ?? '';
             $pidMasked = 'xxxx'.substr($pid, -4);
 
             $progress?->recordProcessing(0, $i, $total, $pidMasked, $uic);
-
-            // Fetch full rr_form from CAREMAT API
             $progress?->recordSearching(0, $i, $total);
-            $rrForm = $this->fetchRrForm($pid);
+
+            // Use rr_form from items directly (sent by nhsoForReach.php)
+            $rrForm = $item['rr_form'] ?? null;
 
             if (! $rrForm) {
                 $progress?->recordFailed(0, $i, $total, "ไม่พบข้อมูล rr_form สำหรับ PID {$pidMasked}", $uic);
@@ -87,7 +84,7 @@ class ProcessAutoNapJob implements ShouldQueue
 
             // Callback per record
             $payload = NapCallbackService::buildPayload(
-                array_merge($item, ['rr_form' => $rrForm]),
+                $item,
                 $result['nap_code'],
                 $result['success'] ? 'success' : 'error',
                 $result['error'] ?? '',
@@ -108,33 +105,6 @@ class ProcessAutoNapJob implements ShouldQueue
     }
 
     /**
-     * Fetch rr_form from CAREMAT API for a specific PID.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function fetchRrForm(string $pid): ?array
-    {
-        try {
-            $apiBase = str_replace('autonap_callback.php', 'autonap_reach.php', $this->callbackUrl);
-            $url = "{$apiBase}?fy={$this->fy}&mode=all&pid={$pid}";
-
-            $response = Http::withOptions(['verify' => false])->timeout(15)->get($url);
-
-            if ($response->successful()) {
-                $data = $response->json();
-
-                return $data['items'][0]['rr_form'] ?? null;
-            }
-
-            return null;
-        } catch (\Exception $e) {
-            Log::warning("Failed to fetch rr_form for PID {$pid}: ".$e->getMessage());
-
-            return null;
-        }
-    }
-
-    /**
      * Create Ably progress service if channel is configured.
      */
     private function createProgress(): ?AblyProgressService
@@ -146,7 +116,6 @@ class ProcessAutoNapJob implements ShouldQueue
         $ablyKey = config('services.ably.key', '');
 
         if (empty($ablyKey)) {
-            // Try to get from carematdb
             try {
                 $ablyKey = \DB::connection('carematdb')
                     ->table('site_specific')
