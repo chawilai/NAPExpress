@@ -14,8 +14,14 @@ class JobRow extends Model
         'reporting_job_id',
         'row_number',
         'pid_masked',
+        'row_data',
+        'status',
         'nap_response_code',
         'error_message',
+    ];
+
+    protected $casts = [
+        'row_data' => 'array',
     ];
 
     public function reportingJob(): BelongsTo

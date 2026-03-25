@@ -26,3 +26,8 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Automation debug files
+automation/screenshots/
+automation/_patched_*
+automation/job_*_data.json

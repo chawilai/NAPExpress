@@ -1,0 +1,432 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\ReportingJob;
+use GuzzleHttp\Client;
+use GuzzleHttp\Cookie\CookieJar;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class NapDirectHttpService
+{
+    private const BASE_URL = 'https://dmis.nhso.go.th/NAPPLUS';
+
+    private const RRTTR_URL = self::BASE_URL.'/rrttr/createRRTTR.do';
+
+    /** Static NAP form reference data — constant for every submission. */
+    private const RISK_BEHAVIORS = [
+        ['value' => '1', 'name' => 'TG'],
+        ['value' => '2', 'name' => 'MSM'],
+        ['value' => '3', 'name' => 'SW'],
+        ['value' => '4', 'name' => 'PWID'],
+        ['value' => '5', 'name' => 'Migrant'],
+        ['value' => '6', 'name' => 'Prisoner'],
+    ];
+
+    private const TARGET_GROUPS = [
+        ['value' => '3', 'name' => 'MSM', 'master' => 'ROW_1_COL_1'],
+        ['value' => '1', 'name' => 'PWID', 'master' => 'ROW_1_COL_2'],
+        ['value' => '16', 'name' => 'ANC', 'master' => 'ROW_1_COL_3'],
+        ['value' => '4', 'name' => 'TGW', 'master' => 'ROW_2_COL_1'],
+        ['value' => '2', 'name' => 'PWUD', 'master' => 'ROW_2_COL_2'],
+        ['value' => '17', 'name' => 'คลอดจากแม่ติดเชื้อเอชไอวี', 'master' => 'ROW_2_COL_3'],
+        ['value' => '5', 'name' => 'TGM', 'master' => 'ROW_3_COL_1'],
+        ['value' => '11', 'name' => 'Partner of KP', 'master' => 'ROW_3_COL_2'],
+        ['value' => '14', 'name' => 'บุคลากรทางการแพทย์ (Health Personnel)', 'master' => 'ROW_3_COL_3'],
+        ['value' => '10', 'name' => 'TGSW', 'master' => 'ROW_4_COL_1'],
+        ['value' => '12', 'name' => 'Partner of PLHIV', 'master' => 'ROW_4_COL_2'],
+        ['value' => '15', 'name' => 'nPEP', 'master' => 'ROW_4_COL_3'],
+        ['value' => '8', 'name' => 'MSW', 'master' => 'ROW_5_COL_1'],
+        ['value' => '7', 'name' => 'Prisoners', 'master' => 'ROW_5_COL_2'],
+        ['value' => '13', 'name' => 'General Population', 'master' => 'ROW_5_COL_3'],
+        ['value' => '9', 'name' => 'FSW', 'master' => 'ROW_6_COL_1'],
+        ['value' => '6', 'name' => 'Migrant', 'master' => 'ROW_6_COL_2'],
+        ['value' => '18', 'name' => 'สามี/คู่ของหญิงตั้งครรภ์', 'master' => 'ROW_6_COL_3'],
+    ];
+
+    private const KNOWLEDGE = [
+        ['value' => '1', 'name' => 'ให้ความรู้เรื่อง เอชไอวี'],
+        ['value' => '2', 'name' => 'ให้ความรู้เรื่อง โรคติดต่อทางเพศสัมพันธ์'],
+        ['value' => '3', 'name' => 'ให้ความรู้เรื่อง วัณโรค'],
+        ['value' => '4', 'name' => 'การลดอันตรายจากการใช้ยา'],
+        ['value' => '5', 'name' => 'ให้ความรู้เรื่อง ไวรัสตับอักเสบซี'],
+    ];
+
+    private const PLACES = [
+        ['value' => '1', 'name' => 'ให้ข้อมูลสถานที่ เอชไอวี'],
+        ['value' => '2', 'name' => 'ให้ข้อมูลสถานที่ โรคติดต่อทางเพศสัมพันธ์'],
+        ['value' => '3', 'name' => 'ให้ข้อมูลสถานที่ วัณโรค'],
+        ['value' => '4', 'name' => 'ให้ข้อมูลสถานที่ การรับยา เมทาโดน'],
+        ['value' => '5', 'name' => 'ให้ข้อมูลสถานที่ ไวรัสตับอักเสบซี (HCV)'],
+    ];
+
+    private const PPES = [
+        ['value' => '1', 'name' => 'ถุงยางอนามัย'],
+        ['value' => '2', 'name' => 'ถุงยางอนามัยผู้หญิง'],
+        ['value' => '3', 'name' => 'สารหล่อลื่น'],
+        ['value' => '4', 'name' => 'อุปกรณ์ฉีดยาปลอดเชื้อ'],
+        ['value' => '5', 'name' => 'หน้ากากอนามัย'],
+    ];
+
+    private const OCCUPATIONS = [
+        '01' => 'ไม่มี/ว่างงาน', '02' => 'เกษตรกร', '03' => 'รับจ้างทั่วไป',
+        '04' => 'ช่างฝีมือ', '05' => 'เจ้าของกิจการ / ธุรกิจ', '06' => 'ข้าราชการทหาร',
+        '07' => 'นักวิทยาศาสตร์และนักเทคนิก', '08' => 'บุคลากรด้านสาธารณสุข',
+        '09' => 'นักวิชาชีพ/นักวิชาการ', '10' => 'ข้าราชการพลเรือนทั่วไป',
+        '11' => 'พนักงานรัฐวิสาหกิจ', '12' => 'นักบวช/งานด้านศาสนา', '13' => 'อื่น ๆ',
+        '14' => 'ข้าราชการตำรวจ', '15' => 'พนักงาน/ลูกจ้างบริษัท', '16' => 'ค้าขาย',
+        '17' => 'กรรมกร, ผู้ใช้แรงงาน', '18' => 'ลูกจ้างโรงงาน', '19' => 'ขับรถรับจ้าง',
+        '20' => 'นักเรียน/นักศึกษา', '21' => 'รับจ้างทำประมง', '22' => 'ขายบริการทางเพศ',
+        '23' => 'นักแสดง นักร้อง นักดนตรี', '24' => 'พนักงานเสริฟท์ ทำงานบาร์',
+        '25' => 'เสริมสวย', '26' => 'แม่บ้าน / งานบ้าน', '27' => 'ผู้ต้องขัง',
+        '28' => 'เด็กต่ำกว่าวัยเรียน', '29' => 'ไม่ระบุอาชีพ',
+    ];
+
+    private const PAY_BY = [
+        '1' => 'NHSO', '2' => 'Global Fund', '3' => 'PEPFAR',
+        '4' => 'งบท้องถิ่น', '5' => 'งบแผ่นดิน',
+    ];
+
+    /**
+     * Get occupation Thai name from code.
+     */
+    public static function occupationName(string $code): string
+    {
+        return self::OCCUPATIONS[$code] ?? '';
+    }
+
+    /**
+     * Get pay_by name from code.
+     */
+    public static function payByName(string $code): string
+    {
+        return self::PAY_BY[$code] ?? '';
+    }
+
+    /**
+     * Extract RR code from NAP success HTML.
+     */
+    public static function extractRrCode(string $html): ?string
+    {
+        if (preg_match('/RR-\d{4}-\d+/', $html, $matches)) {
+            return $matches[0];
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract error message from NAP HTML.
+     */
+    public static function extractError(string $html): ?string
+    {
+        if (preg_match('/<table class="alert">.*?<td class="text">(.*?)<\/td>/s', $html, $matches)) {
+            return trim(strip_tags($matches[1]));
+        }
+
+        return null;
+    }
+
+    /**
+     * Build the full POST body for the "preview" step (step 4).
+     *
+     * @param  array<string, mixed>  $rrForm  Data from CAREMAT API rr_form
+     * @return array<string, string>
+     */
+    public static function buildPreviewBody(array $rrForm): array
+    {
+        $body = ['actionName' => 'preview'];
+
+        // Risk Behaviors — all 6 static entries + checked status
+        foreach (self::RISK_BEHAVIORS as $i => $rb) {
+            $body["rrttr_risk_behavior_{$i}"] = $rb['value'];
+            $body["rrttr_risk_behavior_name_{$i}"] = $rb['name'];
+
+            if (in_array($i, $rrForm['risk_behavior_indices'] ?? [])) {
+                $body["rrttr_risk_behavior_status_{$i}"] = 'Y';
+            }
+        }
+
+        // Target Groups — all 18 static entries + checked status
+        foreach (self::TARGET_GROUPS as $i => $tg) {
+            $body["rrttr_master_value_{$i}"] = $tg['master'];
+            $body["rrttr_target_group_{$i}"] = $tg['value'];
+            $body["rrttr_target_group_name_{$i}"] = $tg['name'];
+
+            if (in_array($i, $rrForm['target_group_indices'] ?? [])) {
+                $body["rrttr_target_group_status_{$i}"] = 'Y';
+            }
+        }
+
+        // Target group summary name
+        $checkedTargetNames = [];
+
+        foreach ($rrForm['target_group_indices'] ?? [] as $idx) {
+            $checkedTargetNames[] = self::TARGET_GROUPS[$idx]['name'] ?? '';
+        }
+        $body['target_group'] = implode(',', $checkedTargetNames);
+
+        // Partner with
+        $body['partner_with'] = (string) ($rrForm['partner_with'] ?? '');
+        $body['partner_with_name'] = '';
+
+        // Access type
+        $body['access_type'] = (string) ($rrForm['access_type'] ?? '2');
+
+        // Social media
+        $body['social_media'] = (string) ($rrForm['social_media'] ?? '');
+        $body['social_media_name'] = '';
+
+        // Pay by
+        $payBy = (string) ($rrForm['pay_by'] ?? '');
+        $body['pay_by'] = $payBy;
+        $body['pay_by_name'] = self::payByName($payBy);
+
+        // Address
+        $body['ref_addr'] = (string) ($rrForm['address']['addr'] ?? '');
+        $body['ref_province'] = (string) ($rrForm['address']['province'] ?? '');
+        $body['ref_amphur'] = (string) ($rrForm['address']['amphur'] ?? '');
+        $body['ref_tumbon'] = (string) ($rrForm['address']['tumbon'] ?? '');
+        $body['ref_prov_name'] = '';
+        $body['ref_amph_name'] = '';
+        $body['ref_tumb_name'] = '';
+        $body['ref_postal'] = (string) ($rrForm['address']['postal'] ?? '');
+        $body['ref_tel'] = (string) ($rrForm['ref_tel'] ?? '');
+        $body['ref_email'] = (string) ($rrForm['ref_email'] ?? '');
+
+        // Occupation
+        $occ = (string) ($rrForm['occupation'] ?? '');
+        $body['occupation'] = $occ;
+        $body['occupation_name'] = self::occupationName($occ);
+
+        // Volunteer name (auto-filled by NAP from session)
+        $body['volunteer_name'] = (string) ($rrForm['volunteer_name'] ?? '');
+
+        // Knowledge — all 5 static entries + checked status
+        foreach (self::KNOWLEDGE as $i => $k) {
+            $body["rrttr_knowledge_{$i}"] = $k['value'];
+            $body["rrttr_knowledge_name_{$i}"] = $k['name'];
+
+            if (in_array($i, $rrForm['knowledge_indices'] ?? [])) {
+                $body["rrttr_knowledge_status_{$i}"] = 'Y';
+            }
+        }
+
+        // Place — all 5 static entries + checked status
+        foreach (self::PLACES as $i => $p) {
+            $body["rrttr_place_{$i}"] = $p['value'];
+            $body["rrttr_place_name_{$i}"] = $p['name'];
+
+            if (in_array($i, $rrForm['place_indices'] ?? [])) {
+                $body["rrttr_place_status_{$i}"] = 'Y';
+            }
+        }
+
+        // PPE — all 5 static entries + checked status
+        foreach (self::PPES as $i => $ppe) {
+            $body["rrttr_ppe_{$i}"] = $ppe['value'];
+            $body["rrttr_ppe_name_{$i}"] = $ppe['name'];
+
+            if (in_array($i, $rrForm['ppe_indices'] ?? [])) {
+                $body["rrttr_ppe_status_{$i}"] = 'Y';
+            }
+        }
+
+        // Condom amounts
+        $condom = $rrForm['condom'] ?? [];
+
+        foreach (['49', '52', '53', '54', '56'] as $size) {
+            $amount = (int) ($condom[$size] ?? 0);
+            $body["rrttr_condom_amount_{$size}"] = $amount > 0 ? (string) $amount : '';
+        }
+        $body['rrttr_female_condom_amount'] = ($rrForm['female_condom'] ?? 0) > 0 ? (string) $rrForm['female_condom'] : '';
+        $body['rrttr_lubricant_amount'] = ($rrForm['lubricant'] ?? 0) > 0 ? (string) $rrForm['lubricant'] : '';
+
+        // Healthcare referral
+        $body['next_hcode'] = (string) ($rrForm['next_hcode'] ?? '');
+        $body['next_hname'] = '';
+        $body['next_hid'] = 'null';
+        $body['next_place'] = '';
+
+        // Forward services
+        $forwards = $rrForm['forwards'] ?? [];
+        $body['hiv_forward'] = (string) ($forwards['hiv'] ?? '2');
+        $body['sti_forward'] = (string) ($forwards['sti'] ?? '2');
+        $body['tb_forward'] = (string) ($forwards['tb'] ?? '2');
+        $body['hcv_forward'] = (string) ($forwards['hcv'] ?? '3');
+        $body['methadone_forward'] = (string) ($forwards['methadone'] ?? '3');
+
+        return $body;
+    }
+
+    /**
+     * Create a Guzzle HTTP client with shared cookie jar for session persistence.
+     */
+    private function createGuzzleClient(): Client
+    {
+        return new Client([
+            'cookies' => new CookieJar,
+            'verify' => false,
+            'timeout' => 30,
+            'connect_timeout' => 10,
+            'headers' => [
+                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            ],
+            'allow_redirects' => true,
+        ]);
+    }
+
+    /**
+     * POST form data via Guzzle.
+     *
+     * @param  array<string, string>  $formParams
+     */
+    private function postForm(Client $client, string $url, array $formParams): string
+    {
+        $response = $client->post($url, ['form_params' => $formParams]);
+
+        return (string) $response->getBody();
+    }
+
+    /**
+     * Submit a single Reach RR record via Direct HTTP POST.
+     * Uses a shared cookie jar so the NAP session persists across all 5 steps.
+     *
+     * @param  array<string, mixed>  $rrForm  From CAREMAT API rr_form
+     * @return array{success: bool, nap_code: ?string, error: ?string}
+     */
+    public function submitRecord(array $credentials, array $rrForm): array
+    {
+        $client = $this->createGuzzleClient();
+
+        try {
+            // Step 1: Login
+            $loginBody = $this->postForm($client, self::BASE_URL.'/login.do', [
+                'actionName' => 'login',
+                'user_name' => $credentials['username'],
+                'password' => $credentials['password'],
+            ]);
+
+            if (str_contains($loginBody, 'login.jsp') || str_contains($loginBody, 'ไม่ถูกต้อง')) {
+                return ['success' => false, 'nap_code' => null, 'error' => 'Login failed'];
+            }
+
+            // Step 2: Search
+            $searchBody = $this->postForm($client, self::RRTTR_URL, [
+                'actionName' => 'search',
+                'gr_type' => '0',
+                'rrttrDate' => $rrForm['rrttrDate'],
+                'pid' => $rrForm['pid'],
+                'rrttrDateAnonym' => '',
+                'uic' => '',
+            ]);
+
+            if ($error = self::extractError($searchBody)) {
+                return ['success' => false, 'nap_code' => null, 'error' => $error];
+            }
+
+            // Step 3: Input (confirm person)
+            $inputBody = $this->postForm($client, self::RRTTR_URL, [
+                'actionName' => 'input',
+                'gotoLog' => 'N',
+                'pid' => $rrForm['pid'],
+                'rrttrDate' => $rrForm['rrttrDate'],
+                'confirm_right' => 'null',
+            ]);
+
+            if ($error = self::extractError($inputBody)) {
+                return ['success' => false, 'nap_code' => null, 'error' => $error];
+            }
+
+            // Step 4: Preview (submit all form data)
+            $previewBody = self::buildPreviewBody($rrForm);
+            $previewResult = $this->postForm($client, self::RRTTR_URL, $previewBody);
+
+            if ($error = self::extractError($previewResult)) {
+                return ['success' => false, 'nap_code' => null, 'error' => $error];
+            }
+
+            // Step 5: Confirm (final save)
+            $confirmBody = $this->postForm($client, self::RRTTR_URL, [
+                'actionName' => 'confirm',
+            ]);
+
+            $rrCode = self::extractRrCode($confirmBody);
+
+            if ($rrCode) {
+                return ['success' => true, 'nap_code' => $rrCode, 'error' => null];
+            }
+
+            $error = self::extractError($confirmBody);
+
+            return ['success' => false, 'nap_code' => null, 'error' => $error ?? 'ไม่พบรหัส RR ในผลลัพธ์'];
+        } catch (\Exception $e) {
+            Log::error('NapDirectHttp error: '.$e->getMessage());
+
+            return ['success' => false, 'nap_code' => null, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Process a full reporting job via Direct HTTP POST.
+     *
+     * @param  string  $callbackMode  'realtime' = send per record, 'batch' = send all at end, 'both' = both
+     */
+    public function processJob(ReportingJob $job, array $credentials, string $callbackMode = 'realtime'): void
+    {
+        $job->update(['status' => 'processing']);
+
+        $rows = $job->jobRows()->where('status', 'pending')->orderBy('row_number')->get();
+        $callbackUrl = NapCallbackService::defaultUrl();
+        $success = 0;
+        $failed = 0;
+        $batchItems = [];
+
+        foreach ($rows as $row) {
+            $rrForm = $row->row_data['rr_form'] ?? $row->row_data;
+            $result = $this->submitRecord($credentials, $rrForm);
+
+            $rowStatus = $result['success'] ? 'success' : 'failed';
+            $row->update([
+                'status' => $rowStatus,
+                'nap_response_code' => $result['nap_code'],
+                'error_message' => $result['error'],
+            ]);
+
+            $result['success'] ? $success++ : $failed++;
+
+            $job->update([
+                'counts' => [
+                    'total' => $job->counts['total'],
+                    'success' => $success,
+                    'failed' => $failed,
+                ],
+            ]);
+
+            $payload = NapCallbackService::buildPayload(
+                $row->row_data,
+                $result['nap_code'],
+                $rowStatus,
+                $result['error'] ?? '',
+            );
+
+            // Real-time: send callback immediately per record
+            if (in_array($callbackMode, ['realtime', 'both'])) {
+                NapCallbackService::send($payload, $callbackUrl);
+            }
+
+            // Collect for batch
+            if (in_array($callbackMode, ['batch', 'both'])) {
+                $batchItems[] = $payload;
+            }
+        }
+
+        $job->update(['status' => 'completed']);
+
+        // Batch: send all results at once
+        if (! empty($batchItems)) {
+            NapCallbackService::sendBatch($batchItems, $callbackUrl);
+        }
+    }
+}
