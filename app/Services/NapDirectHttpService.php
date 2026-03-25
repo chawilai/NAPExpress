@@ -373,19 +373,46 @@ class NapDirectHttpService
      *
      * @param  string  $callbackMode  'realtime' = send per record, 'batch' = send all at end, 'both' = both
      */
-    public function processJob(ReportingJob $job, array $credentials, string $callbackMode = 'realtime'): void
-    {
+    public function processJob(
+        ReportingJob $job,
+        array $credentials,
+        string $callbackMode = 'realtime',
+        ?AblyProgressService $progress = null,
+    ): void {
         $job->update(['status' => 'processing']);
 
         $rows = $job->jobRows()->where('status', 'pending')->orderBy('row_number')->get();
         $callbackUrl = NapCallbackService::defaultUrl();
+        $total = $rows->count();
         $success = 0;
         $failed = 0;
         $batchItems = [];
+        $jobId = $job->id;
 
-        foreach ($rows as $row) {
+        // Phase 1: Start
+        $progress?->jobStart($jobId, $total, $job->organization->name ?? 'AutoNAP');
+        $progress?->connecting($jobId);
+        $progress?->loginStart($jobId);
+
+        // Login is done inside submitRecord per-record, but we show it as a single phase
+        $progress?->loginSuccess($jobId);
+        $progress?->preparing($jobId, $total);
+
+        // Phase 2: Process each record
+        foreach ($rows as $index => $row) {
             $rrForm = $row->row_data['rr_form'] ?? $row->row_data;
+            $uic = $row->row_data['identification']['uic'] ?? '';
+            $i = $index + 1;
+
+            // Sub-step events per record
+            $progress?->recordProcessing($jobId, $i, $total, $row->pid_masked, $uic);
+            $progress?->recordSearching($jobId, $i, $total);
+
             $result = $this->submitRecord($credentials, $rrForm);
+
+            // These events fire after the actual work, but with delays they look natural
+            $progress?->recordFilling($jobId, $i, $total);
+            $progress?->recordSubmitting($jobId, $i, $total);
 
             $rowStatus = $result['success'] ? 'success' : 'failed';
             $row->update([
@@ -404,6 +431,13 @@ class NapDirectHttpService
                 ],
             ]);
 
+            // Result event
+            if ($result['success']) {
+                $progress?->recordSuccess($jobId, $i, $total, $result['nap_code'], $uic);
+            } else {
+                $progress?->recordFailed($jobId, $i, $total, $result['error'] ?? '', $uic);
+            }
+
             $payload = NapCallbackService::buildPayload(
                 $row->row_data,
                 $result['nap_code'],
@@ -411,18 +445,20 @@ class NapDirectHttpService
                 $result['error'] ?? '',
             );
 
-            // Real-time: send callback immediately per record
             if (in_array($callbackMode, ['realtime', 'both'])) {
                 NapCallbackService::send($payload, $callbackUrl);
             }
 
-            // Collect for batch
             if (in_array($callbackMode, ['batch', 'both'])) {
                 $batchItems[] = $payload;
             }
         }
 
+        // Phase 3: Complete
         $job->update(['status' => 'completed']);
+
+        $progress?->summarizing($jobId);
+        $progress?->jobComplete($jobId, $total, $success, $failed);
 
         // Batch: send all results at once
         if (! empty($batchItems)) {
