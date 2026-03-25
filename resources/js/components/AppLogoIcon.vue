@@ -23,10 +23,6 @@ defineProps<Props>();
             fill="currentColor"
             d="M10 32V10h4.5l11 15V10h4.5v22h-4.5l-11-15v15H10z"
         />
-        <path
-            fill="currentColor"
-            fill-opacity="0.3"
-            d="M32 10l6 11-6 11V10z"
-        />
+        <path fill="currentColor" fill-opacity="0.3" d="M32 10l6 11-6 11V10z" />
     </svg>
 </template>
