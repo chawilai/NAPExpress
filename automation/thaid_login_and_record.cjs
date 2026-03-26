@@ -195,7 +195,7 @@ async function loginViaThaiId(page, ably, jobId) {
 // Step 2: Fill and submit RR form (reused from report_reach_rr.cjs)
 // ============================================================
 
-async function fillAndSubmitRecord(page, rrForm) {
+async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
     // Navigate to create RR
     await page.goto(NAP_URLS.createRR, { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForLoadState('networkidle').catch(() => {});
@@ -276,6 +276,12 @@ async function fillAndSubmitRecord(page, rrForm) {
         if (val) await page.check(`#${svc}_forward_${val}`).catch(() => {});
     }
 
+    // Dry run: stop here — form is filled, ready to save
+    if (dryRun) {
+        await page.screenshot({ path: `automation/screenshots/dryrun_form_filled.png`, fullPage: true });
+        return 'DRY_RUN_READY';
+    }
+
     // Submit (preview)
     await page.click('input[name="confirmBtn"]');
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -305,15 +311,16 @@ async function fillAndSubmitRecord(page, rrForm) {
 async function run() {
     const { jobId, dataFile } = parseArgs();
     const jobData = readDataFile(dataFile);
-    const { ablyKey, ablyChannel, items, callbackUrl } = jobData;
+    const { ablyKey, ablyChannel, items, callbackUrl, dryRun } = jobData;
 
     const ably = createAblyPublisher(ablyKey, ablyChannel);
     const total = items?.length || 0;
+    const isDryRun = !!dryRun;
 
-    log(jobId, `Starting ThaiID login flow (${total} records to process)`);
+    log(jobId, `Starting ThaiID login flow (${total} records)${isDryRun ? ' [DRY RUN — จะไม่กดบันทึก]' : ''}`);
 
     const browser = await chromium.launch({
-        headless: true,
+        headless: !isDryRun, // headed mode for dry run so user can see
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
@@ -379,14 +386,33 @@ async function run() {
                     message: `✏️ กำลังกรอกข้อมูลแบบฟอร์ม... (${i + 1}/${total})`,
                 }, 500);
 
-                await ably?.publish('job:record:submitting', {
-                    jobId, index: i + 1, total,
-                    message: `💾 กำลังบันทึก... (${i + 1}/${total})`,
-                }, 500);
+                if (!isDryRun) {
+                    await ably?.publish('job:record:submitting', {
+                        jobId, index: i + 1, total,
+                        message: `💾 กำลังบันทึก... (${i + 1}/${total})`,
+                    }, 500);
+                }
 
-                const rrCode = await fillAndSubmitRecord(page, rrForm);
+                const rrCode = await fillAndSubmitRecord(page, rrForm, isDryRun);
 
-                if (rrCode) {
+                if (isDryRun) {
+                    log(jobId, `  Record ${i + 1}: DRY RUN — form filled, ready to save`);
+                    results.push({ id_card: item.id_card, success: true, nap_code: 'DRY_RUN', error: null });
+                    await ably?.publish('job:record:ready', {
+                        jobId, index: i + 1, total, uic,
+                        message: `✅ พร้อมบันทึก (${i + 1}/${total}) | ${uic} — กรอกข้อมูลครบแล้ว ยังไม่กดบันทึก`,
+                    }, 300);
+
+                    // Keep browser open for inspection
+                    await ably?.publish('job:dryrun:complete', {
+                        jobId,
+                        message: `🔍 DRY RUN สำเร็จ — ข้อมูลกรอกครบ ยังไม่บันทึก\n📸 ดู screenshot: automation/screenshots/dryrun_form_filled.png\n🖥 Browser ค้างไว้ให้ตรวจสอบ 5 นาที`,
+                    });
+
+                    log(jobId, 'Browser stays open for 5 minutes. Press Ctrl+C to close.');
+                    await page.waitForTimeout(300000);
+                    break; // exit loop — dry run only processes first record
+                } else if (rrCode) {
                     log(jobId, `  Record ${i + 1}: ${rrCode}`);
                     results.push({ id_card: item.id_card, success: true, nap_code: rrCode, error: null });
                     await ably?.publish('job:record:success', {

@@ -22,6 +22,7 @@ class AutoNapJobController extends Controller
             'site' => ['required', 'string'],
             'fy' => ['required', 'string'],
             'method' => ['nullable', 'string', 'in:DirectHTTP,ThaiID'],
+            'dry_run' => ['nullable', 'boolean'],
             'nap_username' => ['nullable', 'string'],
             'nap_password' => ['nullable', 'string'],
             'callback_url' => ['required', 'url'],
@@ -59,6 +60,7 @@ class AutoNapJobController extends Controller
             ablyChannel: $validated['ably_channel'] ?? null,
             items: $validated['items'],
             method: $method,
+            dryRun: (bool) ($validated['dry_run'] ?? false),
         );
 
         return response()->json([

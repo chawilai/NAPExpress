@@ -29,6 +29,7 @@ class ProcessAutoNapJob implements ShouldQueue
         public ?string $ablyChannel,
         public array $items,
         public string $method = 'DirectHTTP',
+        public bool $dryRun = false,
     ) {}
 
     public function handle(): void
@@ -55,6 +56,7 @@ class ProcessAutoNapJob implements ShouldQueue
             'ablyChannel' => $this->ablyChannel,
             'callbackUrl' => $this->callbackUrl,
             'items' => $this->items,
+            'dryRun' => $this->dryRun,
         ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
         // Run Playwright script
