@@ -112,6 +112,8 @@ class ProcessAutoNapJob implements ShouldQueue
             $result = $napService->submitWithCookies($cookies, $rrForm, $this->dryRun);
 
             if ($this->dryRun) {
+                $dryRunCode = 'RR-DRYRUN-'.strtoupper(bin2hex(random_bytes(3)));
+
                 if ($result['success']) {
                     $success++;
                     $summary = NapDirectHttpService::summarizeRrForm($rrForm);
@@ -135,6 +137,17 @@ class ProcessAutoNapJob implements ShouldQueue
                     $failed++;
                     $progress?->recordFailed($this->jobId, $i, $total, $result['error'] ?? '', $uic);
                 }
+
+                // Callback per record (dry run — fake RR code)
+                NapCallbackService::send(
+                    NapCallbackService::buildPayload(
+                        $item,
+                        $result['success'] ? $dryRunCode : null,
+                        $result['success'] ? 'success' : 'error',
+                        $result['error'] ?? '',
+                    ),
+                    $callbackUrl,
+                );
 
                 continue;
             }
