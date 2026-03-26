@@ -106,14 +106,14 @@ async function run() {
                 refCode: refCode || '',
                 message: '📱 กรุณาสแกน QR Code ด้วยแอป ThaiD',
             });
-            await ably?.publish('job:thaid:waiting', { jobId, message: '⏳ รอการสแกน ThaiD... (หมดเวลาใน 2 นาที)' });
+            await ably?.publish('job:thaid:waiting', { jobId, message: '⏳ รอการสแกน ThaiD... (หมดเวลาใน 60 วินาที)' });
         }
 
         // Wait for login success (redirect to dmis.nhso.go.th)
         await page.waitForURL(url => {
             const u = url.toString();
             return u.includes('dmis.nhso.go.th') || u.includes('NAPPLUS');
-        }, { timeout: 120000 });
+        }, { timeout: 60000 });
 
         console.log(`[${jobId}] Login success! Extracting cookies...`);
         await ably?.publish('job:login:success', { jobId, message: '✅ Login สำเร็จ — ThaiD ยืนยันตัวตนแล้ว' }, 500);

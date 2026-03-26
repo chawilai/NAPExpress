@@ -64,7 +64,7 @@ class ProcessAutoNapJob implements ShouldQueue
             base_path('automation/thaid_login_only.cjs'),
             '--dataFile='.$dataFile,
         ]);
-        $process->setTimeout(180); // 3 min max for login
+        $process->setTimeout(90); // 90s max (60s QR wait + 30s buffer)
 
         Log::info("ThaiID: Starting login for job {$this->jobId}");
 
