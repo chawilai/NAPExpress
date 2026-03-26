@@ -262,6 +262,83 @@ class NapDirectHttpService
     }
 
     /**
+     * Build a human-readable summary of rr_form data for dry run reports.
+     *
+     * @param  array<string, mixed>  $rrForm
+     * @return array<string, mixed>
+     */
+    public static function summarizeRrForm(array $rrForm): array
+    {
+        $riskNames = [];
+
+        foreach ($rrForm['risk_behavior_indices'] ?? [] as $idx) {
+            $riskNames[] = self::RISK_BEHAVIORS[$idx]['name'] ?? "#{$idx}";
+        }
+
+        $targetNames = [];
+
+        foreach ($rrForm['target_group_indices'] ?? [] as $idx) {
+            $targetNames[] = self::TARGET_GROUPS[$idx]['name'] ?? "#{$idx}";
+        }
+
+        $knowledgeNames = [];
+
+        foreach ($rrForm['knowledge_indices'] ?? [] as $idx) {
+            $knowledgeNames[] = self::KNOWLEDGE[$idx]['name'] ?? "#{$idx}";
+        }
+
+        $ppeNames = [];
+
+        foreach ($rrForm['ppe_indices'] ?? [] as $idx) {
+            $ppeNames[] = self::PPES[$idx]['name'] ?? "#{$idx}";
+        }
+
+        $condom = $rrForm['condom'] ?? [];
+        $condomParts = [];
+
+        foreach (['49', '52', '53', '54', '56'] as $size) {
+            $amount = (int) ($condom[$size] ?? 0);
+
+            if ($amount > 0) {
+                $condomParts[] = "ขนาด {$size}: {$amount}";
+            }
+        }
+
+        if (($rrForm['female_condom'] ?? 0) > 0) {
+            $condomParts[] = "หญิง: {$rrForm['female_condom']}";
+        }
+
+        if (($rrForm['lubricant'] ?? 0) > 0) {
+            $condomParts[] = "สารหล่อลื่น: {$rrForm['lubricant']}";
+        }
+
+        $forwards = $rrForm['forwards'] ?? [];
+        $forwardMap = ['1' => 'ส่งต่อ', '2' => 'ไม่ส่งต่อ', '3' => 'ไม่เกี่ยวข้อง'];
+        $forwardParts = [];
+
+        foreach (['hiv' => 'HIV', 'sti' => 'STI', 'tb' => 'TB', 'hcv' => 'HCV', 'methadone' => 'Methadone'] as $key => $label) {
+            $val = (string) ($forwards[$key] ?? '');
+
+            if ($val === '1') {
+                $forwardParts[] = $label;
+            }
+        }
+
+        return [
+            'date' => $rrForm['rrttrDate'] ?? '',
+            'risk_behaviors' => implode(', ', $riskNames) ?: '-',
+            'target_groups' => implode(', ', $targetNames) ?: '-',
+            'occupation' => self::occupationName((string) ($rrForm['occupation'] ?? '')),
+            'pay_by' => self::payByName((string) ($rrForm['pay_by'] ?? '')),
+            'knowledge' => implode(', ', $knowledgeNames) ?: '-',
+            'ppe' => implode(', ', $ppeNames) ?: '-',
+            'condom' => implode(', ', $condomParts) ?: '-',
+            'forwards' => $forwardParts ? implode(', ', $forwardParts) : 'ไม่มีส่งต่อ',
+            'next_hcode' => $rrForm['next_hcode'] ?? '-',
+        ];
+    }
+
+    /**
      * Create a Guzzle HTTP client with shared cookie jar for session persistence.
      *
      * @param  array<int, array<string, mixed>>|null  $playwrightCookies  Cookies from Playwright browser

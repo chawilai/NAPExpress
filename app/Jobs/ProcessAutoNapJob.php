@@ -114,12 +114,22 @@ class ProcessAutoNapJob implements ShouldQueue
             if ($this->dryRun) {
                 if ($result['success']) {
                     $success++;
-                    $progress?->publish('job:record:ready', [
+                    $summary = NapDirectHttpService::summarizeRrForm($rrForm);
+                    $progress?->publish('job:record:report', [
                         'jobId' => $this->jobId,
                         'index' => $i,
                         'total' => $total,
                         'uic' => $uic,
-                        'message' => "✅ พร้อมบันทึก ({$i}/{$total}) | {$uic} [DRY RUN]",
+                        'pid' => $pidMasked,
+                        'summary' => $summary,
+                        'message' => "✅ พร้อมบันทึก ({$i}/{$total}) | {$uic} | PID: {$pidMasked}\n"
+                            ."  วันที่: {$summary['date']}\n"
+                            ."  กลุ่มเสี่ยง: {$summary['risk_behaviors']}\n"
+                            ."  กลุ่มเป้าหมาย: {$summary['target_groups']}\n"
+                            ."  อาชีพ: {$summary['occupation']}\n"
+                            ."  ถุงยาง: {$summary['condom']}\n"
+                            ."  ส่งต่อ: {$summary['forwards']}\n"
+                            ."  แหล่งเงิน: {$summary['pay_by']}",
                     ], 300);
                 } else {
                     $failed++;
