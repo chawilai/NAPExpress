@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ReportingJob;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
+use GuzzleHttp\Cookie\SetCookie;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -262,11 +263,29 @@ class NapDirectHttpService
 
     /**
      * Create a Guzzle HTTP client with shared cookie jar for session persistence.
+     *
+     * @param  array<int, array<string, mixed>>|null  $playwrightCookies  Cookies from Playwright browser
      */
-    private function createGuzzleClient(): Client
+    private function createGuzzleClient(?array $playwrightCookies = null): Client
     {
+        $jar = new CookieJar;
+
+        // Import cookies from Playwright (ThaiID login)
+        if ($playwrightCookies) {
+            foreach ($playwrightCookies as $cookie) {
+                $jar->setCookie(new SetCookie([
+                    'Name' => $cookie['name'],
+                    'Value' => $cookie['value'],
+                    'Domain' => $cookie['domain'] ?? '',
+                    'Path' => $cookie['path'] ?? '/',
+                    'Secure' => $cookie['secure'] ?? false,
+                    'HttpOnly' => $cookie['httpOnly'] ?? false,
+                ]));
+            }
+        }
+
         return new Client([
-            'cookies' => new CookieJar,
+            'cookies' => $jar,
             'verify' => false,
             'timeout' => 30,
             'connect_timeout' => 10,
@@ -287,6 +306,82 @@ class NapDirectHttpService
         $response = $client->post($url, ['form_params' => $formParams]);
 
         return (string) $response->getBody();
+    }
+
+    /**
+     * Submit using pre-authenticated cookies (from ThaiID Playwright login).
+     * Skips login step — goes straight to form submission (steps 2-5).
+     *
+     * @param  array<int, array<string, mixed>>  $cookies  Playwright cookies
+     * @param  array<string, mixed>  $rrForm
+     * @return array{success: bool, nap_code: ?string, error: ?string}
+     */
+    public function submitWithCookies(array $cookies, array $rrForm): array
+    {
+        $client = $this->createGuzzleClient($cookies);
+
+        try {
+            // Skip step 1 (login) — cookies already authenticated
+
+            // Step 2: Search
+            $searchBody = $this->postForm($client, self::RRTTR_URL, [
+                'actionName' => 'search',
+                'gr_type' => '0',
+                'rrttrDate' => $rrForm['rrttrDate'],
+                'pid' => $rrForm['pid'],
+                'rrttrDateAnonym' => '',
+                'uic' => '',
+            ]);
+
+            if ($error = self::extractError($searchBody)) {
+                return ['success' => false, 'nap_code' => null, 'error' => $error];
+            }
+
+            // Check if redirected to login (session expired)
+            if (str_contains($searchBody, 'login.jsp') || str_contains($searchBody, 'iam.nhso.go.th')) {
+                return ['success' => false, 'nap_code' => null, 'error' => 'Session expired — ต้อง login ใหม่'];
+            }
+
+            // Step 3: Input
+            $inputBody = $this->postForm($client, self::RRTTR_URL, [
+                'actionName' => 'input',
+                'gotoLog' => 'N',
+                'pid' => $rrForm['pid'],
+                'rrttrDate' => $rrForm['rrttrDate'],
+                'confirm_right' => 'null',
+            ]);
+
+            if ($error = self::extractError($inputBody)) {
+                return ['success' => false, 'nap_code' => null, 'error' => $error];
+            }
+
+            // Step 4: Preview
+            $previewBody = self::buildPreviewBody($rrForm);
+            $previewResult = $this->postForm($client, self::RRTTR_URL, $previewBody);
+
+            if ($error = self::extractError($previewResult)) {
+                return ['success' => false, 'nap_code' => null, 'error' => $error];
+            }
+
+            // Step 5: Confirm
+            $confirmBody = $this->postForm($client, self::RRTTR_URL, [
+                'actionName' => 'confirm',
+            ]);
+
+            $rrCode = self::extractRrCode($confirmBody);
+
+            if ($rrCode) {
+                return ['success' => true, 'nap_code' => $rrCode, 'error' => null];
+            }
+
+            $error = self::extractError($confirmBody);
+
+            return ['success' => false, 'nap_code' => null, 'error' => $error ?? 'ไม่พบรหัส RR ในผลลัพธ์'];
+        } catch (\Exception $e) {
+            Log::error('NapDirectHttp (cookies) error: '.$e->getMessage());
+
+            return ['success' => false, 'nap_code' => null, 'error' => $e->getMessage()];
+        }
     }
 
     /**

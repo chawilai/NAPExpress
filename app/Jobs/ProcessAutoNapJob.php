@@ -17,7 +17,7 @@ class ProcessAutoNapJob implements ShouldQueue
     public int $timeout = 3600;
 
     /**
-     * @param  array<string, string>  $credentials  NAP credentials (may be empty for ThaiID flow)
+     * @param  array<string, string>  $credentials  NAP credentials (empty for ThaiID)
      * @param  array<int, array<string, mixed>>  $items  Each item must contain rr_form
      */
     public function __construct(
@@ -28,88 +28,137 @@ class ProcessAutoNapJob implements ShouldQueue
         public string $callbackUrl,
         public ?string $ablyChannel,
         public array $items,
-        public string $method = 'DirectHTTP',
+        public string $method = 'ThaiID',
         public bool $dryRun = false,
     ) {}
 
     public function handle(): void
     {
-        if ($this->method === 'ThaiID') {
-            $this->handleThaiIdFlow();
-        } else {
-            $this->handleDirectHttpFlow();
-        }
+        match ($this->method) {
+            'DirectHTTP' => $this->handleDirectHttpFlow(),
+            default => $this->handleThaiIdFlow(),
+        };
     }
 
     /**
-     * ThaiID flow: Playwright handles login (QR scan) + form filling.
-     * All events published via Node.js Ably client.
+     * ThaiID flow:
+     * 1. Playwright (headed) → ThaiD login → QR scan → export cookies
+     * 2. DirectHTTP (PHP) → use cookies → submit forms (fast ~1s/record)
      */
     protected function handleThaiIdFlow(): void
     {
         $ablyKey = $this->getAblyKey();
+        $progress = $this->createProgress();
+        $total = count($this->items);
 
-        // Write data file for the Playwright script
+        // Step 1: Playwright login — export cookies
         $dataFile = storage_path("app/private/thaid_{$this->jobId}.json");
         file_put_contents($dataFile, json_encode([
             'ablyKey' => $ablyKey,
             'ablyChannel' => $this->ablyChannel,
-            'callbackUrl' => $this->callbackUrl,
-            'items' => $this->items,
-            'dryRun' => $this->dryRun,
-        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            'jobId' => $this->jobId,
+        ], JSON_UNESCAPED_UNICODE));
 
-        // Run Playwright script
         $process = new Process([
             'node',
-            base_path('automation/thaid_login_and_record.cjs'),
-            '--jobId='.$this->jobId,
+            base_path('automation/thaid_login_only.cjs'),
             '--dataFile='.$dataFile,
         ]);
-        $process->setTimeout($this->timeout);
-        $process->run();
+        $process->setTimeout(180); // 3 min max for login
 
-        if (! $process->isSuccessful()) {
-            Log::error("ThaiID Playwright failed: {$process->getErrorOutput()}");
+        Log::info("ThaiID: Starting login for job {$this->jobId}");
+
+        $process->run(function ($type, $buffer) {
+            Log::info("ThaiID [{$type}]: {$buffer}");
+        });
+
+        // Read cookies
+        $cookieFile = str_replace('.json', '_cookies.json', $dataFile);
+
+        if (! file_exists($cookieFile)) {
+            Log::error('ThaiID: No cookies file — login failed');
+            $progress?->publish('job:error', ['jobId' => $this->jobId, 'message' => '❌ Login ล้มเหลว — ไม่ได้สแกน ThaiD']);
+            $this->cleanup($dataFile, $cookieFile);
+
+            return;
         }
 
-        // Read results and send callbacks
-        $resultsFile = str_replace('.json', '_results.json', $dataFile);
+        $cookies = json_decode(file_get_contents($cookieFile), true);
+        Log::info("ThaiID: Got {$count} cookies", ['count' => count($cookies)]);
 
-        if (file_exists($resultsFile)) {
-            $results = json_decode(file_get_contents($resultsFile), true);
+        // Step 2: DirectHTTP with cookies — fast form submission
+        $progress?->preparing($this->jobId, $total);
 
-            foreach ($results['results'] ?? [] as $result) {
-                $item = collect($this->items)->firstWhere('id_card', $result['id_card']) ?? [];
-                NapCallbackService::send(
-                    NapCallbackService::buildPayload(
-                        $item,
-                        $result['nap_code'] ?? null,
-                        $result['success'] ? 'success' : 'error',
-                        $result['error'] ?? '',
-                    ),
-                    $this->callbackUrl,
-                );
+        $napService = new NapDirectHttpService;
+        $callbackUrl = $this->callbackUrl;
+        $success = 0;
+        $failed = 0;
+
+        foreach ($this->items as $index => $item) {
+            $i = $index + 1;
+            $rrForm = $item['rr_form'] ?? [];
+            $uic = $item['uic'] ?? '';
+            $pidMasked = 'xxxx'.substr($item['id_card'] ?? '', -4);
+
+            $progress?->recordProcessing($this->jobId, $i, $total, $pidMasked, $uic);
+            $progress?->recordSearching($this->jobId, $i, $total);
+            $progress?->recordFilling($this->jobId, $i, $total);
+
+            if (! $this->dryRun) {
+                $progress?->recordSubmitting($this->jobId, $i, $total);
             }
 
-            unlink($resultsFile);
+            $result = $napService->submitWithCookies($cookies, $rrForm);
+
+            if ($this->dryRun) {
+                $progress?->publish('job:record:ready', [
+                    'jobId' => $this->jobId,
+                    'index' => $i,
+                    'total' => $total,
+                    'uic' => $uic,
+                    'message' => "✅ พร้อมบันทึก ({$i}/{$total}) | {$uic} [DRY RUN]",
+                ], 300);
+                $success++;
+
+                break;
+            }
+
+            if ($result['success']) {
+                $success++;
+                $progress?->recordSuccess($this->jobId, $i, $total, $result['nap_code'], $uic);
+            } else {
+                $failed++;
+                $progress?->recordFailed($this->jobId, $i, $total, $result['error'] ?? '', $uic);
+            }
+
+            // Callback per record
+            NapCallbackService::send(
+                NapCallbackService::buildPayload(
+                    $item,
+                    $result['nap_code'],
+                    $result['success'] ? 'success' : 'error',
+                    $result['error'] ?? '',
+                ),
+                $callbackUrl,
+            );
         }
 
-        // Cleanup
-        if (file_exists($dataFile)) {
-            unlink($dataFile);
-        }
+        // Summary
+        $progress?->summarizing($this->jobId);
+        $progress?->jobComplete($this->jobId, $total, $success, $failed);
+
+        Log::info("AutoNAP job completed: {$this->jobId}", compact('total', 'success', 'failed'));
+
+        $this->cleanup($dataFile, $cookieFile);
     }
 
     /**
      * DirectHTTP flow: PHP handles login (username/password) + form POST.
-     * Events published via PHP Ably client.
      */
     protected function handleDirectHttpFlow(): void
     {
         $progress = $this->createProgress();
         $napService = new NapDirectHttpService;
-        $total = count($this->items);
 
         $napService->processJob(
             job: null,
@@ -121,18 +170,13 @@ class ProcessAutoNapJob implements ShouldQueue
         );
     }
 
-    /**
-     * Get Ably key from carematdb or config.
-     */
     protected function getAblyKey(): string
     {
         $key = config('services.ably.key', '');
 
         if (empty($key)) {
             try {
-                $key = \DB::connection('carematdb')
-                    ->table('site_specific')
-                    ->value('ably_key') ?? '';
+                $key = \DB::connection('carematdb')->table('site_specific')->value('ably_key') ?? '';
             } catch (\Exception $e) {
                 Log::warning('Could not get Ably key: '.$e->getMessage());
             }
@@ -141,9 +185,6 @@ class ProcessAutoNapJob implements ShouldQueue
         return $key;
     }
 
-    /**
-     * Create Ably progress service.
-     */
     protected function createProgress(): ?AblyProgressService
     {
         if (! $this->ablyChannel) {
@@ -152,10 +193,15 @@ class ProcessAutoNapJob implements ShouldQueue
 
         $ablyKey = $this->getAblyKey();
 
-        if (empty($ablyKey)) {
-            return null;
-        }
+        return ! empty($ablyKey) ? new AblyProgressService($ablyKey, $this->ablyChannel) : null;
+    }
 
-        return new AblyProgressService($ablyKey, $this->ablyChannel);
+    protected function cleanup(string ...$files): void
+    {
+        foreach ($files as $file) {
+            if (file_exists($file)) {
+                unlink($file);
+            }
+        }
     }
 }

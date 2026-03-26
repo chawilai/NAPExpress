@@ -319,21 +319,25 @@ async function run() {
 
     log(jobId, `Starting ThaiID login flow (${total} records)${isDryRun ? ' [DRY RUN — จะไม่กดบันทึก]' : ''}`);
 
-    const browser = await chromium.launch({
-        headless: !isDryRun, // headed mode for dry run so user can see
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    // ============================================================
+    // Phase 1: HEADED browser — login via ThaiID
+    // (GDCC Security blocks headless on iam.nhso.go.th)
+    // ============================================================
+    log(jobId, 'Opening headed browser for ThaiID login...');
+    const loginBrowser = await chromium.launch({
+        headless: false,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
     });
 
-    const context = await browser.newContext({
+    const loginContext = await loginBrowser.newContext({
         viewport: { width: 1280, height: 900 },
         locale: 'th-TH',
         timezoneId: 'Asia/Bangkok',
     });
-    context.setDefaultTimeout(20000);
-    const page = await context.newPage();
+    loginContext.setDefaultTimeout(20000);
+    const loginPage = await loginContext.newPage();
 
-    // Handle dialogs
-    page.on('dialog', async dlg => {
+    loginPage.on('dialog', async dlg => {
         log(jobId, `Dialog: "${dlg.message()}"`);
         await dlg.accept();
     });
@@ -341,29 +345,64 @@ async function run() {
     const results = [];
 
     try {
-        // Step 1: Login via ThaiID
-        const loginOk = await loginViaThaiId(page, ably, jobId);
+        // Login via ThaiID (headed)
+        const loginOk = await loginViaThaiId(loginPage, ably, jobId);
 
         if (!loginOk) {
-            // Mark all as failed
             for (const item of items || []) {
-                results.push({
-                    id_card: item.id_card,
-                    success: false,
-                    nap_code: null,
-                    error: 'Login failed — ThaiID scan timeout',
-                });
+                results.push({ id_card: item.id_card, success: false, nap_code: null, error: 'Login failed — ThaiID scan timeout' });
             }
+            await loginBrowser.close();
             await writeResults(dataFile, results);
             return;
         }
 
-        // Step 2: Process records
+        // Extract cookies from headed browser
+        const cookies = await loginContext.cookies();
+        log(jobId, `Extracted ${cookies.length} cookies from login session`);
+
+        // Save cookies to file for DirectHTTP (PHP) to use
+        const cookieFile = dataFile.replace('.json', '_cookies.json');
+        fs.writeFileSync(cookieFile, JSON.stringify(cookies, null, 2));
+        log(jobId, `Cookies saved to: ${cookieFile}`);
+
+        // Close headed browser — login done
+        await loginBrowser.close();
+        log(jobId, 'Headed browser closed');
+
+        // ============================================================
+        // Phase 2: HEADLESS browser — fill forms with session cookies
+        // (dmis.nhso.go.th is NOT blocked by GDCC in headless)
+        // ============================================================
         await ably?.publish('job:preparing', {
             jobId, total,
-            message: `📋 กำลังเตรียมข้อมูล ${total} รายการ...`,
+            message: `📋 กำลังเตรียมข้อมูล ${total} รายการ... (headless mode)`,
         }, 1000);
 
+        const workBrowser = await chromium.launch({
+            headless: !isDryRun, // headed only for dry run inspection
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        });
+
+        const workContext = await workBrowser.newContext({
+            viewport: { width: 1280, height: 900 },
+            locale: 'th-TH',
+            timezoneId: 'Asia/Bangkok',
+        });
+
+        // Inject session cookies from login
+        await workContext.addCookies(cookies);
+        workContext.setDefaultTimeout(20000);
+
+        const page = await workContext.newPage();
+        page.on('dialog', async dlg => {
+            log(jobId, `Dialog: "${dlg.message()}"`);
+            await dlg.accept();
+        });
+
+        log(jobId, 'Headless browser ready with session cookies');
+
+        // Process records
         for (let i = 0; i < (items || []).length; i++) {
             const item = items[i];
             const rrForm = item.rr_form;
@@ -402,16 +441,13 @@ async function run() {
                         jobId, index: i + 1, total, uic,
                         message: `✅ พร้อมบันทึก (${i + 1}/${total}) | ${uic} — กรอกข้อมูลครบแล้ว ยังไม่กดบันทึก`,
                     }, 300);
-
-                    // Keep browser open for inspection
                     await ably?.publish('job:dryrun:complete', {
                         jobId,
-                        message: `🔍 DRY RUN สำเร็จ — ข้อมูลกรอกครบ ยังไม่บันทึก\n📸 ดู screenshot: automation/screenshots/dryrun_form_filled.png\n🖥 Browser ค้างไว้ให้ตรวจสอบ 5 นาที`,
+                        message: '🔍 DRY RUN สำเร็จ — ข้อมูลกรอกครบ ยังไม่บันทึก\n🖥 Browser ค้างไว้ให้ตรวจสอบ 5 นาที',
                     });
-
-                    log(jobId, 'Browser stays open for 5 minutes. Press Ctrl+C to close.');
+                    log(jobId, 'Browser stays open for 5 minutes.');
                     await page.waitForTimeout(300000);
-                    break; // exit loop — dry run only processes first record
+                    break;
                 } else if (rrCode) {
                     log(jobId, `  Record ${i + 1}: ${rrCode}`);
                     results.push({ id_card: item.id_card, success: true, nap_code: rrCode, error: null });
@@ -447,14 +483,14 @@ async function run() {
         });
 
         log(jobId, `Done: ${success} success, ${failed} failed`);
+        await workBrowser.close();
     } catch (error) {
         log(jobId, `Fatal: ${error.message}`);
         await ably?.publish('job:error', {
             jobId,
             message: `❌ เกิดข้อผิดพลาด: ${error.message}`,
         });
-    } finally {
-        await browser.close();
+        try { await loginBrowser.close(); } catch {}
     }
 
     await writeResults(dataFile, results);

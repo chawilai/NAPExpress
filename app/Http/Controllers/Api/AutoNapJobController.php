@@ -21,7 +21,7 @@ class AutoNapJobController extends Controller
         $validated = $request->validate([
             'site' => ['required', 'string'],
             'fy' => ['required', 'string'],
-            'method' => ['nullable', 'string', 'in:DirectHTTP,ThaiID'],
+            'method' => ['nullable', 'string'],
             'dry_run' => ['nullable', 'boolean'],
             'nap_username' => ['nullable', 'string'],
             'nap_password' => ['nullable', 'string'],
@@ -36,7 +36,13 @@ class AutoNapJobController extends Controller
             'items.*.rr_form.rrttrDate' => ['required', 'string'],
         ]);
 
-        $method = $validated['method'] ?? 'ThaiID';
+        // Normalize method: accept any case
+        $rawMethod = strtolower($validated['method'] ?? 'thaid');
+        $method = match (true) {
+            str_contains($rawMethod, 'direct'), str_contains($rawMethod, 'http') => 'DirectHTTP',
+            str_contains($rawMethod, 'playwright') => 'ThaiID',
+            default => 'ThaiID',
+        };
 
         // DirectHTTP requires credentials
         if ($method === 'DirectHTTP' && (empty($validated['nap_username']) || empty($validated['nap_password']))) {
