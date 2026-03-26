@@ -276,10 +276,71 @@ async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
         if (val) await page.check(`#${svc}_forward_${val}`).catch(() => {});
     }
 
-    // Dry run: stop here — form is filled, ready to save
+    // Dry run: capture what was selected, then go back for next record
     if (dryRun) {
-        await page.screenshot({ path: `automation/screenshots/dryrun_form_filled.png`, fullPage: true });
-        return 'DRY_RUN_READY';
+        const report = await page.evaluate(() => {
+            const checked = (prefix, count) => {
+                const items = [];
+                for (let i = 0; i < count; i++) {
+                    const el = document.querySelector(`#${prefix}_${i}`);
+                    if (el && el.checked) {
+                        const nameEl = document.querySelector(`input[name="${prefix.replace('_status', '_name')}_${i}"]`);
+                        items.push({ index: i, name: nameEl ? nameEl.value : `index ${i}` });
+                    }
+                }
+                return items;
+            };
+
+            const radioVal = (name) => {
+                const el = document.querySelector(`input[name="${name}"]:checked`);
+                return el ? el.value : null;
+            };
+
+            const selectVal = (id) => {
+                const el = document.querySelector(`#${id}`);
+                if (!el) return null;
+                return { value: el.value, text: el.options?.[el.selectedIndex]?.text || el.value };
+            };
+
+            const inputVal = (id) => {
+                const el = document.querySelector(`#${id}`);
+                return el ? el.value : '';
+            };
+
+            return {
+                risk_behaviors: checked('rrttr_risk_behavior_status', 6),
+                target_groups: checked('rrttr_target_group_status', 18),
+                access_type: radioVal('access_type'),
+                occupation: selectVal('occupation'),
+                pay_by: selectVal('pay_by'),
+                knowledge: checked('rrttr_knowledge_status', 5),
+                place: checked('rrttr_place_status', 5),
+                ppe: checked('rrttr_ppe_status', 5),
+                condom_49: inputVal('rrttr_condom_amount_49'),
+                condom_52: inputVal('rrttr_condom_amount_52'),
+                condom_53: inputVal('rrttr_condom_amount_53'),
+                condom_54: inputVal('rrttr_condom_amount_54'),
+                condom_56: inputVal('rrttr_condom_amount_56'),
+                female_condom: inputVal('rrttr_female_condom_amount'),
+                lubricant: inputVal('rrttr_lubricant_amount'),
+                next_hcode: inputVal('next_hcode'),
+                ref_tel: inputVal('ref_tel'),
+                hiv_forward: radioVal('hiv_forward'),
+                sti_forward: radioVal('sti_forward'),
+                tb_forward: radioVal('tb_forward'),
+                hcv_forward: radioVal('hcv_forward'),
+                methadone_forward: radioVal('methadone_forward'),
+            };
+        });
+
+        await page.screenshot({ path: `automation/screenshots/dryrun_${rrForm.pid}.png`, fullPage: true });
+
+        // Go back to search page for next record
+        const backBtn = await page.$('input[name="backBtn"]');
+        if (backBtn) await backBtn.click().catch(() => {});
+        await delay(500);
+
+        return { dryRun: true, report };
     }
 
     // Submit (preview)
@@ -434,20 +495,47 @@ async function run() {
 
                 const rrCode = await fillAndSubmitRecord(page, rrForm, isDryRun);
 
-                if (isDryRun) {
-                    log(jobId, `  Record ${i + 1}: DRY RUN — form filled, ready to save`);
-                    results.push({ id_card: item.id_card, success: true, nap_code: 'DRY_RUN', error: null });
-                    await ably?.publish('job:record:ready', {
-                        jobId, index: i + 1, total, uic,
-                        message: `✅ พร้อมบันทึก (${i + 1}/${total}) | ${uic} — กรอกข้อมูลครบแล้ว ยังไม่กดบันทึก`,
-                    }, 300);
-                    await ably?.publish('job:dryrun:complete', {
-                        jobId,
-                        message: '🔍 DRY RUN สำเร็จ — ข้อมูลกรอกครบ ยังไม่บันทึก\n🖥 Browser ค้างไว้ให้ตรวจสอบ 5 นาที',
+                if (isDryRun && rrCode?.dryRun) {
+                    const report = rrCode.report;
+                    log(jobId, `  Record ${i + 1}: DRY RUN — form filled`);
+
+                    // Build readable report
+                    const lines = [
+                        `📋 รายงาน DRY RUN (${i + 1}/${total}) | ${uic} | PID: ${pidMasked}`,
+                        ``,
+                        `พฤติกรรมเสี่ยง: ${report.risk_behaviors.map(r => r.name).join(', ') || '-'}`,
+                        `กลุ่มเป้าหมาย: ${report.target_groups.map(r => r.name).join(', ') || '-'}`,
+                        `ช่องทางเข้าถึง: ${report.access_type === '1' ? 'ใน DIC' : report.access_type === '2' ? 'นอก DIC' : report.access_type === '3' ? 'Social Media' : '-'}`,
+                        `อาชีพ: ${report.occupation?.text || '-'} (${report.occupation?.value || '-'})`,
+                        `แหล่งเงิน: ${report.pay_by?.text || '-'}`,
+                        `ความรู้: ${report.knowledge.map(r => r.name).join(', ') || '-'}`,
+                        `สถานที่: ${report.place.map(r => r.name).join(', ') || '-'}`,
+                        `PPE: ${report.ppe.map(r => r.name).join(', ') || '-'}`,
+                        `ถุงยาง: 49=${report.condom_49||0} 52=${report.condom_52||0} 53=${report.condom_53||0} 54=${report.condom_54||0} 56=${report.condom_56||0}`,
+                        `ถุงยางหญิง: ${report.female_condom || 0} | สารหล่อลื่น: ${report.lubricant || 0}`,
+                        `หน่วยบริการ: ${report.next_hcode || '-'}`,
+                        `โทร: ${report.ref_tel || '-'}`,
+                        `ส่งต่อ: HIV=${report.hiv_forward||'-'} STI=${report.sti_forward||'-'} TB=${report.tb_forward||'-'} HCV=${report.hcv_forward||'-'} Methadone=${report.methadone_forward||'-'}`,
+                    ];
+
+                    console.log('\n' + lines.join('\n') + '\n');
+
+                    results.push({
+                        id_card: item.id_card,
+                        uic,
+                        success: true,
+                        nap_code: 'DRY_RUN',
+                        error: null,
+                        report,
                     });
-                    log(jobId, 'Browser stays open for 5 minutes.');
-                    await page.waitForTimeout(300000);
-                    break;
+
+                    await ably?.publish('job:record:report', {
+                        jobId, index: i + 1, total, uic, pidMasked,
+                        report,
+                        message: lines.join('\n'),
+                    }, 500);
+
+                    // Continue to next record (don't break!)
                 } else if (rrCode) {
                     log(jobId, `  Record ${i + 1}: ${rrCode}`);
                     results.push({ id_card: item.id_card, success: true, nap_code: rrCode, error: null });
