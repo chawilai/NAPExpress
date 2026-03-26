@@ -314,9 +314,10 @@ class NapDirectHttpService
      *
      * @param  array<int, array<string, mixed>>  $cookies  Playwright cookies
      * @param  array<string, mixed>  $rrForm
+     * @param  bool  $dryRun  Stop after preview step (don't actually save)
      * @return array{success: bool, nap_code: ?string, error: ?string}
      */
-    public function submitWithCookies(array $cookies, array $rrForm): array
+    public function submitWithCookies(array $cookies, array $rrForm, bool $dryRun = false): array
     {
         $client = $this->createGuzzleClient($cookies);
 
@@ -361,6 +362,11 @@ class NapDirectHttpService
 
             if ($error = self::extractError($previewResult)) {
                 return ['success' => false, 'nap_code' => null, 'error' => $error];
+            }
+
+            // Dry run: stop after preview — don't actually save
+            if ($dryRun) {
+                return ['success' => true, 'nap_code' => null, 'error' => null];
             }
 
             // Step 5: Confirm

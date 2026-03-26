@@ -84,7 +84,8 @@ class ProcessAutoNapJob implements ShouldQueue
         }
 
         $cookies = json_decode(file_get_contents($cookieFile), true);
-        Log::info("ThaiID: Got {$count} cookies", ['count' => count($cookies)]);
+        $count = count($cookies);
+        Log::info("ThaiID: Got {$count} cookies");
 
         // Step 2: DirectHTTP with cookies — fast form submission
         $progress?->preparing($this->jobId, $total);
@@ -108,19 +109,24 @@ class ProcessAutoNapJob implements ShouldQueue
                 $progress?->recordSubmitting($this->jobId, $i, $total);
             }
 
-            $result = $napService->submitWithCookies($cookies, $rrForm);
+            $result = $napService->submitWithCookies($cookies, $rrForm, $this->dryRun);
 
             if ($this->dryRun) {
-                $progress?->publish('job:record:ready', [
-                    'jobId' => $this->jobId,
-                    'index' => $i,
-                    'total' => $total,
-                    'uic' => $uic,
-                    'message' => "✅ พร้อมบันทึก ({$i}/{$total}) | {$uic} [DRY RUN]",
-                ], 300);
-                $success++;
+                if ($result['success']) {
+                    $success++;
+                    $progress?->publish('job:record:ready', [
+                        'jobId' => $this->jobId,
+                        'index' => $i,
+                        'total' => $total,
+                        'uic' => $uic,
+                        'message' => "✅ พร้อมบันทึก ({$i}/{$total}) | {$uic} [DRY RUN]",
+                    ], 300);
+                } else {
+                    $failed++;
+                    $progress?->recordFailed($this->jobId, $i, $total, $result['error'] ?? '', $uic);
+                }
 
-                break;
+                continue;
             }
 
             if ($result['success']) {
