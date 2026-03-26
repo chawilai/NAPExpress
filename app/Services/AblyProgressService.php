@@ -43,7 +43,7 @@ class AblyProgressService
     /**
      * Job started.
      */
-    public function jobStart(int $jobId, int $total, string $siteName): void
+    public function jobStart(int|string $jobId, int $total, string $siteName): void
     {
         $this->publish('job:start', [
             'jobId' => $jobId,
@@ -56,7 +56,7 @@ class AblyProgressService
     /**
      * Connecting to NAP Plus.
      */
-    public function connecting(int $jobId): void
+    public function connecting(int|string $jobId): void
     {
         $this->publish('job:connecting', [
             'jobId' => $jobId,
@@ -67,7 +67,7 @@ class AblyProgressService
     /**
      * Login in progress.
      */
-    public function loginStart(int $jobId): void
+    public function loginStart(int|string $jobId): void
     {
         $this->publish('job:login', [
             'jobId' => $jobId,
@@ -78,7 +78,7 @@ class AblyProgressService
     /**
      * Login success.
      */
-    public function loginSuccess(int $jobId): void
+    public function loginSuccess(int|string $jobId): void
     {
         $this->publish('job:login:success', [
             'jobId' => $jobId,
@@ -90,7 +90,7 @@ class AblyProgressService
     /**
      * Login failed.
      */
-    public function loginFailed(int $jobId, string $error): void
+    public function loginFailed(int|string $jobId, string $error): void
     {
         $this->publish('job:login:failed', [
             'jobId' => $jobId,
@@ -103,7 +103,7 @@ class AblyProgressService
     /**
      * Preparing data.
      */
-    public function preparing(int $jobId, int $total): void
+    public function preparing(int|string $jobId, int $total): void
     {
         $this->publish('job:preparing', [
             'jobId' => $jobId,
@@ -119,7 +119,7 @@ class AblyProgressService
     /**
      * Record processing started.
      */
-    public function recordProcessing(int $jobId, int $index, int $total, string $pidMasked, string $uic = ''): void
+    public function recordProcessing(int|string $jobId, int $index, int $total, string $pidMasked, string $uic = ''): void
     {
         $this->publish('job:record:processing', [
             'jobId' => $jobId,
@@ -134,7 +134,7 @@ class AblyProgressService
     /**
      * Searching for person.
      */
-    public function recordSearching(int $jobId, int $index, int $total): void
+    public function recordSearching(int|string $jobId, int $index, int $total): void
     {
         $this->publish('job:record:searching', [
             'jobId' => $jobId,
@@ -147,7 +147,7 @@ class AblyProgressService
     /**
      * Filling form.
      */
-    public function recordFilling(int $jobId, int $index, int $total): void
+    public function recordFilling(int|string $jobId, int $index, int $total): void
     {
         $this->publish('job:record:filling', [
             'jobId' => $jobId,
@@ -160,7 +160,7 @@ class AblyProgressService
     /**
      * Submitting form.
      */
-    public function recordSubmitting(int $jobId, int $index, int $total): void
+    public function recordSubmitting(int|string $jobId, int $index, int $total): void
     {
         $this->publish('job:record:submitting', [
             'jobId' => $jobId,
@@ -173,7 +173,7 @@ class AblyProgressService
     /**
      * Record success.
      */
-    public function recordSuccess(int $jobId, int $index, int $total, string $napCode, string $uic = ''): void
+    public function recordSuccess(int|string $jobId, int $index, int $total, string $napCode, string $uic = ''): void
     {
         $this->publish('job:record:success', [
             'jobId' => $jobId,
@@ -188,7 +188,7 @@ class AblyProgressService
     /**
      * Record failed.
      */
-    public function recordFailed(int $jobId, int $index, int $total, string $error, string $uic = ''): void
+    public function recordFailed(int|string $jobId, int $index, int $total, string $error, string $uic = ''): void
     {
         $this->publish('job:record:failed', [
             'jobId' => $jobId,
@@ -207,7 +207,7 @@ class AblyProgressService
     /**
      * Summarizing results.
      */
-    public function summarizing(int $jobId): void
+    public function summarizing(int|string $jobId): void
     {
         $this->publish('job:summarizing', [
             'jobId' => $jobId,
@@ -218,7 +218,7 @@ class AblyProgressService
     /**
      * Job completed.
      */
-    public function jobComplete(int $jobId, int $total, int $success, int $failed): void
+    public function jobComplete(int|string $jobId, int $total, int $success, int $failed): void
     {
         $this->publish('job:complete', [
             'jobId' => $jobId,
