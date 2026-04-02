@@ -42,98 +42,88 @@ class ProcessAutoNapJob implements ShouldQueue
 
     /**
      * ThaiID flow:
-     * 1. Playwright (headed) → ThaiD login → QR scan → export cookies
-     * 2. DirectHTTP (PHP) → use cookies → submit forms
+     * 1. Playwright (headed) → ThaiD login → QR scan
+     * 2. Playwright (headless) → use cookies → fill forms via DOM → submit
+     *
+     * All handled by thaid_login_and_record.cjs — PHP reads results + sends callbacks.
      */
     protected function handleThaiIdFlow(): void
     {
         $ablyKey = $this->getAblyKey();
-        $progress = $this->createProgress();
         $total = count($this->items);
 
-        // Step 1: Playwright login — export cookies
+        // Prepare data file for Playwright script
         $dataFile = storage_path("app/private/thaid_{$this->jobId}.json");
         file_put_contents($dataFile, json_encode([
             'ablyKey' => $ablyKey,
             'ablyChannel' => $this->ablyChannel,
-            'jobId' => $this->jobId,
+            'items' => $this->items,
+            'dryRun' => $this->dryRun,
         ], JSON_UNESCAPED_UNICODE));
 
         $process = new Process([
             'node',
-            base_path('automation/thaid_login_only.cjs'),
+            base_path('automation/thaid_login_and_record.cjs'),
+            '--jobId='.$this->jobId,
             '--dataFile='.$dataFile,
         ]);
-        $process->setTimeout(90);
+        $process->setTimeout($this->timeout);
 
-        Log::info("ThaiID: Starting login for job {$this->jobId}");
+        Log::info("ThaiID: Starting login+record for job {$this->jobId}", [
+            'total' => $total,
+            'dryRun' => $this->dryRun,
+        ]);
 
         $process->run(function ($type, $buffer) {
             Log::info("ThaiID [{$type}]: {$buffer}");
         });
 
-        // Read cookies
-        $cookieFile = str_replace('.json', '_cookies.json', $dataFile);
+        // Read results from Playwright
+        $resultsFile = str_replace('.json', '_results.json', $dataFile);
 
-        if (! file_exists($cookieFile)) {
-            Log::error('ThaiID: No cookies file — login failed');
-            $progress?->publish('job:error', ['jobId' => $this->jobId, 'message' => '❌ Login ล้มเหลว — ไม่ได้สแกน ThaiD']);
-            $this->cleanup($dataFile, $cookieFile);
+        if (! file_exists($resultsFile)) {
+            Log::error("ThaiID: No results file — script failed for job {$this->jobId}");
+            $this->cleanup($dataFile);
 
             return;
         }
 
-        $cookies = json_decode(file_get_contents($cookieFile), true);
-        Log::info('ThaiID: Got '.count($cookies).' cookies');
+        $resultsData = json_decode(file_get_contents($resultsFile), true);
+        $results = $resultsData['results'] ?? [];
 
-        // Step 2: DirectHTTP with cookies
-        $progress?->preparing($this->jobId, $total);
-
-        $napService = new NapDirectHttpService;
-        $client = $napService->createClientFromCookies($cookies);
+        // Send callbacks to CAREMAT for each result
         $success = 0;
         $failed = 0;
 
-        foreach ($this->items as $index => $item) {
-            $i = $index + 1;
-            $rrForm = $item['rr_form'] ?? [];
-            $uic = $item['uic'] ?? '';
-            $pidMasked = 'xxxx'.substr($item['id_card'] ?? '', -4);
-
-            $progress?->recordProcessing($this->jobId, $i, $total, $pidMasked, $uic);
-            $progress?->recordSearching($this->jobId, $i, $total);
-            $progress?->recordFilling($this->jobId, $i, $total);
-            $progress?->recordSubmitting($this->jobId, $i, $total);
-
-            $result = $napService->submitWithClient($client, $rrForm);
-
+        foreach ($results as $index => $result) {
+            $item = $this->items[$index] ?? [];
             $item['fy'] = $this->fy;
 
-            if ($result['success']) {
+            $isSuccess = $result['success'] ?? false;
+            $napCode = $result['nap_code'] ?? null;
+            $error = $result['error'] ?? '';
+
+            if ($isSuccess) {
                 $success++;
-                $progress?->recordSuccess($this->jobId, $i, $total, $result['nap_code'], $uic);
             } else {
                 $failed++;
-                $progress?->recordFailed($this->jobId, $i, $total, $result['error'] ?? '', $uic);
             }
 
+            // Send callback per record
             NapCallbackService::send(
                 NapCallbackService::buildPayload(
                     $item,
-                    $result['nap_code'],
-                    $result['success'] ? 'success' : 'error',
-                    $result['error'] ?? '',
+                    $napCode,
+                    $isSuccess ? 'success' : 'error',
+                    $error,
                 ),
                 $this->callbackUrl,
             );
         }
 
-        $progress?->summarizing($this->jobId);
-        $progress?->jobComplete($this->jobId, $total, $success, $failed);
-
         Log::info("AutoNAP job completed: {$this->jobId}", compact('total', 'success', 'failed'));
 
-        $this->cleanup($dataFile, $cookieFile);
+        $this->cleanup($dataFile, $resultsFile);
     }
 
     /**
