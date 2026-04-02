@@ -91,6 +91,7 @@ class ProcessAutoNapJob implements ShouldQueue
         $progress?->preparing($this->jobId, $total);
 
         $napService = new NapDirectHttpService;
+        $client = $napService->createClientFromCookies($cookies);
         $callbackUrl = $this->callbackUrl;
         $success = 0;
         $failed = 0;
@@ -109,7 +110,10 @@ class ProcessAutoNapJob implements ShouldQueue
                 $progress?->recordSubmitting($this->jobId, $i, $total);
             }
 
-            $result = $napService->submitWithCookies($cookies, $rrForm, $this->dryRun);
+            $result = $napService->submitWithClient($client, $rrForm, $this->dryRun);
+
+            // Enrich item with fy for callback payload
+            $item['fy'] = $this->fy;
 
             if ($this->dryRun) {
                 $dryRunCode = 'RR-DRYRUN-'.strtoupper(bin2hex(random_bytes(3)));

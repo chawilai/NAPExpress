@@ -25,13 +25,14 @@ class NapCallbackService
         $context = $rowData['context'] ?? [];
         $service = $rowData['service'] ?? [];
 
+        // Support both nested (ReportingJob) and flat (ProcessAutoNapJob) item structures
         return [
-            'source_id' => $service['source_id'] ?? null,
-            'source' => $context['source'] ?? null,
-            'uic' => $identification['uic'] ?? null,
-            'id_card' => $identification['pid'] ?? $rrForm['pid'] ?? null,
-            'kp' => $person['kp'] ?? null,
-            'fy' => $context['fy'] ?? null,
+            'source_id' => $service['source_id'] ?? $rowData['source_id'] ?? null,
+            'source' => $context['source'] ?? $rowData['source'] ?? null,
+            'uic' => $identification['uic'] ?? $rowData['uic'] ?? null,
+            'id_card' => $identification['pid'] ?? $rrForm['pid'] ?? $rowData['id_card'] ?? null,
+            'kp' => $person['kp'] ?? $rowData['kp'] ?? null,
+            'fy' => $context['fy'] ?? $rowData['fy'] ?? null,
             'nap_code' => $napCode,
             'nap_comment' => $comment ?: '',
             'nap_staff' => 'AutoNAP',

@@ -386,6 +386,16 @@ class NapDirectHttpService
     }
 
     /**
+     * Create a Guzzle client from Playwright cookies for reuse across multiple records.
+     *
+     * @param  array<int, array<string, mixed>>  $cookies  Playwright cookies
+     */
+    public function createClientFromCookies(array $cookies): Client
+    {
+        return $this->createGuzzleClient($cookies);
+    }
+
+    /**
      * Submit using pre-authenticated cookies (from ThaiID Playwright login).
      * Skips login step — goes straight to form submission (steps 2-5).
      *
@@ -398,6 +408,19 @@ class NapDirectHttpService
     {
         $client = $this->createGuzzleClient($cookies);
 
+        return $this->submitWithClient($client, $rrForm, $dryRun);
+    }
+
+    /**
+     * Submit a single record using an existing authenticated Guzzle client.
+     * Reusing the same client preserves the NAP session (cookie jar) across records.
+     *
+     * @param  array<string, mixed>  $rrForm
+     * @param  bool  $dryRun  Stop after preview step (don't actually save)
+     * @return array{success: bool, nap_code: ?string, error: ?string}
+     */
+    public function submitWithClient(Client $client, array $rrForm, bool $dryRun = false): array
+    {
         try {
             // Skip step 1 (login) — cookies already authenticated
 
@@ -454,10 +477,13 @@ class NapDirectHttpService
             $rrCode = self::extractRrCode($confirmBody);
 
             if ($rrCode) {
+                Log::info('NAP confirm RR code extracted', ['rr_code' => $rrCode, 'pid' => $rrForm['pid']]);
+
                 return ['success' => true, 'nap_code' => $rrCode, 'error' => null];
             }
 
             $error = self::extractError($confirmBody);
+            Log::warning('NAP confirm: no RR code found', ['pid' => $rrForm['pid'], 'html_snippet' => substr($confirmBody, 0, 500)]);
 
             return ['success' => false, 'nap_code' => null, 'error' => $error ?? 'ไม่พบรหัส RR ในผลลัพธ์'];
         } catch (\Exception $e) {
