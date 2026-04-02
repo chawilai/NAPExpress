@@ -59,11 +59,12 @@ it('builds preview POST body with correct static reference data', function () {
         ->and($body['pay_by_name'])->toBe('NHSO')
         // Next hcode
         ->and($body['next_hcode'])->toBe('41681')
-        // Knowledge — static data + checked status
+        // Knowledge — always all 5 checked
         ->and($body['rrttr_knowledge_status_0'])->toBe('Y')
         ->and($body['rrttr_knowledge_status_1'])->toBe('Y')
         ->and($body['rrttr_knowledge_status_2'])->toBe('Y')
-        ->and($body)->not->toHaveKey('rrttr_knowledge_status_3')
+        ->and($body['rrttr_knowledge_status_3'])->toBe('Y')
+        ->and($body['rrttr_knowledge_status_4'])->toBe('Y')
         // Place
         ->and($body['rrttr_place_status_0'])->toBe('Y')
         ->and($body['rrttr_place_status_1'])->toBe('Y')

@@ -179,8 +179,8 @@ class NapDirectHttpService
         $body['social_media'] = (string) ($rrForm['social_media'] ?? '');
         $body['social_media_name'] = '';
 
-        // Pay by
-        $payBy = (string) ($rrForm['pay_by'] ?? '');
+        // Pay by — default NHSO (1)
+        $payBy = (string) ($rrForm['pay_by'] ?? '1');
         $body['pay_by'] = $payBy;
         $body['pay_by_name'] = self::payByName($payBy);
 
@@ -201,17 +201,24 @@ class NapDirectHttpService
         $body['occupation'] = $occ;
         $body['occupation_name'] = self::occupationName($occ);
 
+        // SW work type — set to "นอกสถานบริการ" (2) when SW-related groups are selected
+        $riskIndices = $rrForm['risk_behavior_indices'] ?? [];
+        $targetIndices = $rrForm['target_group_indices'] ?? [];
+        $isSw = in_array(2, $riskIndices)                // SW risk behavior
+            || ! empty(array_intersect([9, 12, 15], $targetIndices)); // TGSW, MSW, FSW
+
+        if ($isSw) {
+            $body['sw_type'] = '2'; // นอกสถานบริการ
+        }
+
         // Volunteer name (auto-filled by NAP from session)
         $body['volunteer_name'] = (string) ($rrForm['volunteer_name'] ?? '');
 
-        // Knowledge — all 5 static entries + checked status
+        // Knowledge — always check all 5 (ให้ความรู้ครบทุกข้อ)
         foreach (self::KNOWLEDGE as $i => $k) {
             $body["rrttr_knowledge_{$i}"] = $k['value'];
             $body["rrttr_knowledge_name_{$i}"] = $k['name'];
-
-            if (in_array($i, $rrForm['knowledge_indices'] ?? [])) {
-                $body["rrttr_knowledge_status_{$i}"] = 'Y';
-            }
+            $body["rrttr_knowledge_status_{$i}"] = 'Y';
         }
 
         // Place — all 5 static entries + checked status
