@@ -228,6 +228,20 @@ async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
     await page.waitForLoadState('networkidle').catch(() => {});
     await delay(1000);
 
+    // Debug: dump actual checkbox IDs on the form
+    const formDebug = await page.evaluate(() => {
+        const allCheckboxes = [...document.querySelectorAll('input[type="checkbox"]')];
+        const targetCbs = allCheckboxes.filter(el => el.name?.includes('target_group'));
+        const riskCbs = allCheckboxes.filter(el => el.name?.includes('risk_behavior'));
+        return {
+            url: location.href,
+            totalCheckboxes: allCheckboxes.length,
+            targetGroups: targetCbs.map(el => ({ id: el.id, name: el.name, visible: el.offsetParent !== null })),
+            riskBehaviors: riskCbs.map(el => ({ id: el.id, name: el.name, visible: el.offsetParent !== null })),
+        };
+    });
+    console.log(`[DEBUG] Form checkboxes: ${JSON.stringify(formDebug)}`);
+
     // Fill form fields via DOM — using evaluate() to bypass visibility issues
     await page.evaluate((rf) => {
         const clickCheckbox = (id) => {
