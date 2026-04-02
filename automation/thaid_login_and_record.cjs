@@ -228,6 +228,11 @@ async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
     await page.waitForLoadState('networkidle').catch(() => {});
     await delay(1000);
 
+    // Debug: log rrForm before passing to evaluate
+    console.log(`[DEBUG] rrForm.risk_behavior_indices: ${JSON.stringify(rrForm.risk_behavior_indices)}`);
+    console.log(`[DEBUG] rrForm.target_group_indices: ${JSON.stringify(rrForm.target_group_indices)}`);
+    console.log(`[DEBUG] rrForm keys: ${Object.keys(rrForm).join(', ')}`);
+
     // Debug: dump actual checkbox IDs on the form
     const formDebug = await page.evaluate(() => {
         const allCheckboxes = [...document.querySelectorAll('input[type="checkbox"]')];
@@ -243,6 +248,18 @@ async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
     console.log(`[DEBUG] Form checkboxes: ${JSON.stringify(formDebug)}`);
 
     // Fill form fields via DOM — using evaluate() to bypass visibility issues
+    const fillDebug = await page.evaluate((rf) => {
+        const received = {
+            riskIndices: rf.risk_behavior_indices,
+            targetIndices: rf.target_group_indices,
+            typeofRisk: typeof rf.risk_behavior_indices,
+            typeofTarget: typeof rf.target_group_indices,
+            allKeys: Object.keys(rf),
+        };
+        return received;
+    }, rrForm);
+    console.log(`[DEBUG] evaluate received: ${JSON.stringify(fillDebug)}`);
+
     await page.evaluate((rf) => {
         const clickCheckbox = (id) => {
             const el = document.getElementById(id);
