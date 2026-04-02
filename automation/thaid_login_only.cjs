@@ -41,7 +41,7 @@ async function run() {
     console.log(`[${jobId}] Opening headed browser for ThaiID login...`);
 
     const browser = await chromium.launch({
-        headless: false,
+        headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
     });
 
