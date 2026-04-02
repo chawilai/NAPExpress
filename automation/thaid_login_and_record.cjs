@@ -228,36 +228,59 @@ async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
     await page.waitForLoadState('networkidle').catch(() => {});
     await delay(1000);
 
-    // Fill form fields
-    for (const idx of rrForm.risk_behavior_indices || []) {
-        await page.check(`#rrttr_risk_behavior_status_${idx}`).catch(() => {});
-    }
-    for (const idx of rrForm.target_group_indices || []) {
-        await page.check(`#rrttr_target_group_status_${idx}`).catch(() => {});
-    }
-    if (rrForm.access_type) await page.check(`#access_type_${rrForm.access_type}`).catch(() => {});
-    await page.selectOption('#pay_by', rrForm.pay_by || '1').catch(() => {}); // default NHSO
+    // Fill form fields via DOM — using evaluate() to bypass visibility issues
+    await page.evaluate((rf) => {
+        const clickCheckbox = (id) => {
+            const el = document.getElementById(id);
+            if (el && !el.checked) el.click();
+        };
+
+        const setRadio = (name, value) => {
+            const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+            if (el) el.click();
+        };
+
+        const setSelect = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) { el.value = value; el.dispatchEvent(new Event('change', { bubbles: true })); }
+        };
+
+        // Risk behaviors
+        for (const idx of rf.risk_behavior_indices || []) {
+            clickCheckbox(`rrttr_risk_behavior_status_${idx}`);
+        }
+
+        // Target groups
+        for (const idx of rf.target_group_indices || []) {
+            clickCheckbox(`rrttr_target_group_status_${idx}`);
+        }
+
+        // Access type
+        if (rf.access_type) setRadio('access_type', rf.access_type);
+
+        // Pay by — default NHSO
+        setSelect('pay_by', rf.pay_by || '1');
+
+        // Occupation
+        if (rf.occupation) setSelect('occupation', rf.occupation);
+
+        // SW work type — นอกสถานบริการ for SW/FSW/MSW/TGSW
+        const isSw = (rf.risk_behavior_indices || []).includes(2)
+            || [9, 12, 15].some(i => (rf.target_group_indices || []).includes(i));
+        if (isSw) setRadio('sw_type', '2');
+
+        // Knowledge — always check all 5
+        for (let i = 0; i < 5; i++) clickCheckbox(`rrttr_knowledge_status_${i}`);
+
+        // Places
+        for (const idx of rf.place_indices || []) clickCheckbox(`rrttr_place_status_${idx}`);
+
+        // PPE
+        for (const idx of rf.ppe_indices || []) clickCheckbox(`rrttr_ppe_status_${idx}`);
+    }, rrForm);
+
+    // Text fields that need Playwright fill (to trigger input events properly)
     if (rrForm.ref_tel) await page.fill('#ref_tel', rrForm.ref_tel).catch(() => {});
-    if (rrForm.occupation) await page.selectOption('#occupation', rrForm.occupation).catch(() => {});
-
-    // SW work type — นอกสถานบริการ for SW/FSW/MSW/TGSW
-    const riskIndices = rrForm.risk_behavior_indices || [];
-    const targetIndices = rrForm.target_group_indices || [];
-    const isSw = riskIndices.includes(2) || [9, 12, 15].some(i => targetIndices.includes(i));
-    if (isSw) {
-        await page.check('#sw_type_2').catch(() => {}); // นอกสถานบริการ
-    }
-
-    // Knowledge — always check all 5 (ให้ความรู้ครบทุกข้อ)
-    for (let idx = 0; idx < 5; idx++) {
-        await page.check(`#rrttr_knowledge_status_${idx}`).catch(() => {});
-    }
-    for (const idx of rrForm.place_indices || []) {
-        await page.check(`#rrttr_place_status_${idx}`).catch(() => {});
-    }
-    for (const idx of rrForm.ppe_indices || []) {
-        await page.check(`#rrttr_ppe_status_${idx}`).catch(() => {});
-    }
 
     // Condom — unhide + fill
     await page.evaluate(() => {
