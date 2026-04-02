@@ -34,8 +34,8 @@ class NapCallbackService
             'kp' => $person['kp'] ?? $rowData['kp'] ?? null,
             'fy' => $context['fy'] ?? $rowData['fy'] ?? null,
             'nap_code' => $napCode,
-            'nap_comment' => $comment ?: '',
-            'nap_staff' => 'AutoNAP',
+            'nap_comment' => trim(($comment ?: '').' AutoNAP'),
+            'nap_staff' => $rowData['cbs'] ?? 'AutoNAP',
             'status' => $status,
         ];
     }

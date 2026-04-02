@@ -51,7 +51,7 @@ it('builds callback payload for error with comment', function () {
     expect($payload)
         ->status->toBe('error')
         ->nap_code->toBeNull()
-        ->nap_comment->toBe('ข้อมูลซ้ำในระบบ');
+        ->nap_comment->toBe('ข้อมูลซ้ำในระบบ AutoNAP');
 });
 
 it('extracts fields from flat row_data (without nested structure)', function () {
