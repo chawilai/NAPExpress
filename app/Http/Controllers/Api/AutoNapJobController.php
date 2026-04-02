@@ -62,6 +62,9 @@ class AutoNapJobController extends Controller
 
         $jobId = 'autonap-'.bin2hex(random_bytes(8));
 
+        // Use full items from request (not $validated which strips extra rr_form fields)
+        $items = $request->input('items');
+
         ProcessAutoNapJob::dispatch(
             jobId: $jobId,
             site: $validated['site'],
@@ -72,7 +75,7 @@ class AutoNapJobController extends Controller
             ],
             callbackUrl: $validated['callback_url'],
             ablyChannel: $validated['ably_channel'] ?? null,
-            items: $validated['items'],
+            items: $items,
             method: $method,
             dryRun: (bool) ($validated['dry_run'] ?? false),
         );
