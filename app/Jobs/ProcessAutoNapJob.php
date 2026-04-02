@@ -109,12 +109,13 @@ class ProcessAutoNapJob implements ShouldQueue
                 $failed++;
             }
 
-            // Send callback per record
+            // Send callback per record — always 'success' (= attempted recording)
+            // error details go in nap_comment for reference
             NapCallbackService::send(
                 NapCallbackService::buildPayload(
                     $item,
                     $napCode,
-                    $isSuccess ? 'success' : 'error',
+                    'success',
                     $error,
                 ),
                 $this->callbackUrl,
