@@ -236,11 +236,20 @@ async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
         await page.check(`#rrttr_target_group_status_${idx}`).catch(() => {});
     }
     if (rrForm.access_type) await page.check(`#access_type_${rrForm.access_type}`).catch(() => {});
-    if (rrForm.pay_by) await page.selectOption('#pay_by', rrForm.pay_by).catch(() => {});
+    await page.selectOption('#pay_by', rrForm.pay_by || '1').catch(() => {}); // default NHSO
     if (rrForm.ref_tel) await page.fill('#ref_tel', rrForm.ref_tel).catch(() => {});
     if (rrForm.occupation) await page.selectOption('#occupation', rrForm.occupation).catch(() => {});
 
-    for (const idx of rrForm.knowledge_indices || []) {
+    // SW work type — นอกสถานบริการ for SW/FSW/MSW/TGSW
+    const riskIndices = rrForm.risk_behavior_indices || [];
+    const targetIndices = rrForm.target_group_indices || [];
+    const isSw = riskIndices.includes(2) || [9, 12, 15].some(i => targetIndices.includes(i));
+    if (isSw) {
+        await page.check('#sw_type_2').catch(() => {}); // นอกสถานบริการ
+    }
+
+    // Knowledge — always check all 5 (ให้ความรู้ครบทุกข้อ)
+    for (let idx = 0; idx < 5; idx++) {
         await page.check(`#rrttr_knowledge_status_${idx}`).catch(() => {});
     }
     for (const idx of rrForm.place_indices || []) {
