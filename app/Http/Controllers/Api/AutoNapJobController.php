@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessAutoNapJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AutoNapJobController extends Controller
 {
@@ -18,6 +19,13 @@ class AutoNapJobController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        // Log incoming request for debugging
+        Log::info('AutoNAP job request received', [
+            'site' => $request->input('site'),
+            'items_count' => count($request->input('items', [])),
+            'items' => $request->input('items'),
+        ]);
+
         $validated = $request->validate([
             'site' => ['required', 'string'],
             'fy' => ['required', 'string'],

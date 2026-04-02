@@ -246,7 +246,11 @@ async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
     await page.evaluate((rf) => {
         const clickCheckbox = (id) => {
             const el = document.getElementById(id);
-            if (el && !el.checked) el.click();
+            if (el) {
+                el.checked = true;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                el.dispatchEvent(new Event('click', { bubbles: true }));
+            }
         };
 
         const setRadio = (name, value) => {
@@ -292,6 +296,21 @@ async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
         // PPE
         for (const idx of rf.ppe_indices || []) clickCheckbox(`rrttr_ppe_status_${idx}`);
     }, rrForm);
+
+    // Debug: verify checkboxes were checked
+    const afterFill = await page.evaluate((rf) => {
+        const check = (prefix, indices) => indices.map(i => {
+            const el = document.getElementById(`${prefix}_${i}`);
+            return { i, checked: el?.checked ?? 'NOT FOUND' };
+        });
+        return {
+            risk: check('rrttr_risk_behavior_status', rf.risk_behavior_indices || []),
+            target: check('rrttr_target_group_status', rf.target_group_indices || []),
+            knowledge: check('rrttr_knowledge_status', [0,1,2,3,4]),
+            targetGroupHidden: document.querySelector('input[name="target_group"]')?.value || 'NO FIELD',
+        };
+    }, rrForm);
+    console.log(`[DEBUG] After fill: ${JSON.stringify(afterFill)}`);
 
     // Text fields that need Playwright fill (to trigger input events properly)
     if (rrForm.ref_tel) await page.fill('#ref_tel', rrForm.ref_tel).catch(() => {});
