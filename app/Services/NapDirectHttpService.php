@@ -107,11 +107,12 @@ class NapDirectHttpService
 
     /**
      * Extract RR code from NAP success HTML.
+     * Uses the LAST match — the confirm page may contain previous RR codes earlier in the HTML.
      */
     public static function extractRrCode(string $html): ?string
     {
-        if (preg_match('/RR-\d{4}-\d+/', $html, $matches)) {
-            return $matches[0];
+        if (preg_match_all('/RR-\d{4}-\d+/', $html, $matches)) {
+            return end($matches[0]);
         }
 
         return null;
@@ -479,6 +480,13 @@ class NapDirectHttpService
             // Step 5: Confirm
             $confirmBody = $this->postForm($client, self::RRTTR_URL, [
                 'actionName' => 'confirm',
+            ]);
+
+            // Log confirm page for debugging RR code extraction
+            Log::debug('NAP confirm response', [
+                'pid' => $rrForm['pid'],
+                'html_length' => strlen($confirmBody),
+                'html_snippet' => substr($confirmBody, 0, 1000),
             ]);
 
             $rrCode = self::extractRrCode($confirmBody);
