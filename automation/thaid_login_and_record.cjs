@@ -34,6 +34,8 @@ const VCT_KP_MAP = {
     'บุคลากรทางการแพทย์': 8, 'TGSW': 9, 'Partner of PLHIV': 10,
     'nPEP': 11, 'MSW': 12, 'Prisoners': 13, 'General Population': 14,
     'FSW': 15, 'Migrant': 16, 'สามี/คู่ของหญิงตั้งครรภ์': 17,
+    // CAREMAT aliases
+    'Female': 14, 'Male': 14, 'PWID-Male': 1, 'PWID-Female': 1,
 };
 
 const THAID_SELECTORS = {
