@@ -962,76 +962,57 @@ async function fillAndSubmitHivResult(page, context, loginCookies, labCode, test
     const resultMap = { 'Positive': '1', 'Negative': '2', 'Inconclusive': '3' };
     const resultValue = resultMap[hivResult] || '2'; // default Negative
 
-    // Open SEPARATE browser context so doConfirm() doesn't kill main session
-    const { chromium } = require('playwright');
-    const resultBrowser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
-    const resultContext = await resultBrowser.newContext({
-        viewport: { width: 1280, height: 900 },
-        locale: 'th-TH',
-        timezoneId: 'Asia/Bangkok',
-    });
-    await resultContext.addCookies(loginCookies);
-    const resultPage = await resultContext.newPage();
-    resultPage.on('dialog', async dlg => {
-        console.log(`[Result] Dialog: "${dlg.message()}"`);
-        await dlg.accept();
-    });
+    // Use the SAME page — like manual flow (NAP Plus saves via form submit, page refreshes)
+    const resultUrl = 'https://dmis.nhso.go.th/NAPPLUS/responseLabRequest/searchResponseLabRequest.do?actionName=search_init';
+    await page.goto(resultUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
 
-    try {
-        const resultUrl = 'https://dmis.nhso.go.th/NAPPLUS/responseLabRequest/searchResponseLabRequest.do?actionName=search_init';
-        await resultPage.goto(resultUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-        await resultPage.waitForLoadState('networkidle').catch(() => {});
-
-        if (resultPage.url().includes('iam.nhso.go.th')) {
-            throw new Error('Session expired — redirected to login (HIV result)');
-        }
-
-        // Fill search
-        await resultPage.fill('#lab_request_id', labCode);
-        await resultPage.selectOption('#lab_type', '1:001');
-        await delay(500);
-
-        // Click ค้นหา
-        await resultPage.click('input[name="cmdSearch"]');
-        await resultPage.waitForLoadState('networkidle').catch(() => {});
-        await delay(2000);
-
-        // Check if result row exists
-        const hasRow = await resultPage.evaluate(() => !!document.querySelector('#labreq_id_0'));
-        if (!hasRow) {
-            throw new Error(`ไม่พบข้อมูล Lab ${labCode} ในระบบ`);
-        }
-
-        if (dryRun) {
-            return 'DRY_RUN_RESULT';
-        }
-
-        // Fill result
-        await resultPage.fill('#lab_test_date_0', testDate);
-        await resultPage.selectOption('#lab_status_0', '1'); // ตรวจได้
-        await delay(300);
-        await resultPage.selectOption('#lab_result_0', resultValue);
-        await delay(300);
-
-        // Set change flag (required for save)
-        await resultPage.evaluate(() => {
-            const flag = document.querySelector('#change_result_0');
-            if (flag) flag.value = 'Y';
-        });
-
-        // Save via doConfirm()
-        console.log(`[Result] Saving: ${labCode} → ${hivResult} (${resultValue})`);
-        await resultPage.evaluate(() => {
-            if (typeof doConfirm === 'function') doConfirm();
-        });
-        await resultPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-        await delay(2000);
-
-        return hivResult;
-    } finally {
-        // Close separate browser — main browser session completely untouched
-        await resultBrowser.close().catch(() => {});
+    if (page.url().includes('iam.nhso.go.th')) {
+        throw new Error('Session expired — redirected to login (HIV result)');
     }
+
+    // Fill search
+    await page.fill('#lab_request_id', labCode);
+    await page.selectOption('#lab_type', '1:001');
+    await delay(500);
+
+    // Click ค้นหา
+    await page.click('input[name="cmdSearch"]');
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await delay(2000);
+
+    // Check if result row exists
+    const hasRow = await page.evaluate(() => !!document.querySelector('#labreq_id_0'));
+    if (!hasRow) {
+        throw new Error(`ไม่พบข้อมูล Lab ${labCode} ในระบบ`);
+    }
+
+    if (dryRun) {
+        return 'DRY_RUN_RESULT';
+    }
+
+    // Fill result
+    await page.fill('#lab_test_date_0', testDate);
+    await page.selectOption('#lab_status_0', '1'); // ตรวจได้
+    await delay(300);
+    await page.selectOption('#lab_result_0', resultValue);
+    await delay(300);
+
+    // Set change flag (required for save)
+    await page.evaluate(() => {
+        const flag = document.querySelector('#change_result_0');
+        if (flag) flag.value = 'Y';
+    });
+
+    // Save via doConfirm() — page refreshes same URL (session stays alive)
+    console.log(`[Result] Saving: ${labCode} → ${hivResult} (${resultValue})`);
+    await page.evaluate(() => {
+        if (typeof doConfirm === 'function') doConfirm();
+    });
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await delay(2000);
+
+    return hivResult;
 }
 
 // ============================================================
@@ -1264,9 +1245,9 @@ async function run() {
                             }, 500);
                             const serviceDate = item.service_date;
                             if (!isDryRun) {
-                                await fillAndSubmitHivResult(page, workContext, cookies, labCode, serviceDate, item.hiv_result, false);
+                                await fillAndSubmitHivResult(page, null, null, labCode, serviceDate, item.hiv_result, false);
                             } else {
-                                await fillAndSubmitHivResult(page, workContext, cookies, labCode, serviceDate, item.hiv_result, true);
+                                await fillAndSubmitHivResult(page, null, null, labCode, serviceDate, item.hiv_result, true);
                             }
                             log(jobId, `  Record ${i + 1}: Result = ${item.hiv_result}`);
 
