@@ -513,9 +513,27 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         console.log('[VCT] Back on search page after confirm — re-filling date + PID');
         await page.fill('input[name="vct_date"]', serviceDate);
         await page.fill('input[name="pid"]', pid);
+
+        // Debug: verify values were filled
+        const filledDate = await page.inputValue('input[name="vct_date"]');
+        const filledPid = await page.inputValue('input[name="pid"]');
+        console.log(`[VCT] Filled: date=${filledDate} pid=${filledPid}`);
+
         await page.click('input#cmdSearch');
         await page.waitForLoadState('networkidle').catch(() => {});
         await delay(1500);
+
+        // Screenshot after re-search
+        await page.screenshot({ path: 'automation/screenshots/vct_after_research.png', fullPage: true });
+
+        // Check page content for errors
+        const pageContent = await page.evaluate(() => {
+            const alert = document.querySelector('table.alert td.text');
+            const allText = document.body.innerText.substring(0, 300);
+            return { alert: alert?.textContent?.trim(), text: allText };
+        });
+        console.log(`[VCT] After re-search: alert=${pageContent.alert || 'none'}`);
+        console.log(`[VCT] Page text: ${pageContent.text.substring(0, 200)}`);
 
         // Check for another confirm
         const confirmBtn2 = await page.$('input[value="ตกลง"]');
@@ -529,7 +547,12 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
 
     // Verify we're on the VCT form (not search page)
     if (page.url().includes('actionName=load')) {
-        throw new Error('ไม่สามารถเข้าฟอร์ม VCT ได้ — ยังอยู่หน้าค้นหา');
+        // Get error details for better debugging
+        const errDetail = await page.evaluate(() => {
+            const alert = document.querySelector('table.alert td.text');
+            return alert?.textContent?.trim() || document.body.innerText.substring(0, 200);
+        });
+        throw new Error(`ไม่สามารถเข้าฟอร์ม VCT ได้: ${errDetail}`);
     }
 
     // Fill VCT form via DOM
