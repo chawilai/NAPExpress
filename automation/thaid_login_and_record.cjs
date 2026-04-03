@@ -91,7 +91,7 @@ function buildVctCallback(item, fy, vctCode) {
         nap_vct_code: vctCode,
         vct_nap_status: 'true',
         nap_staff: item.cbs || 'AutoNAP',
-        nap_comment: 'VCT บันทึกสำเร็จ AutoNAP',
+        nap_comment: 'AutoNAP',
         status: 'success',
         row_id: item.row_id,
     };
@@ -110,7 +110,7 @@ function buildLabCallback(item, fy, labCode) {
         nap_lab_code: labCode,
         nap_status: 'true',
         nap_staff: item.cbs || 'AutoNAP',
-        nap_comment: 'Request Lab HIV บันทึกสำเร็จ AutoNAP',
+        nap_comment: 'AutoNAP',
         status: 'success',
         row_id: item.row_id,
     };
