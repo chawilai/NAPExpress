@@ -962,8 +962,16 @@ async function fillAndSubmitHivResult(page, context, loginCookies, labCode, test
     const resultMap = { 'Positive': '1', 'Negative': '2', 'Inconclusive': '3' };
     const resultValue = resultMap[hivResult] || '2'; // default Negative
 
-    // Open a NEW page for lab result (to not kill session on main page)
-    const resultPage = await context.newPage();
+    // Open SEPARATE browser context so doConfirm() doesn't kill main session
+    const { chromium } = require('playwright');
+    const resultBrowser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+    const resultContext = await resultBrowser.newContext({
+        viewport: { width: 1280, height: 900 },
+        locale: 'th-TH',
+        timezoneId: 'Asia/Bangkok',
+    });
+    await resultContext.addCookies(loginCookies);
+    const resultPage = await resultContext.newPage();
     resultPage.on('dialog', async dlg => {
         console.log(`[Result] Dialog: "${dlg.message()}"`);
         await dlg.accept();
@@ -1021,8 +1029,8 @@ async function fillAndSubmitHivResult(page, context, loginCookies, labCode, test
 
         return hivResult;
     } finally {
-        // Always close the result page — main page session stays intact
-        await resultPage.close().catch(() => {});
+        // Close separate browser — main browser session completely untouched
+        await resultBrowser.close().catch(() => {});
     }
 }
 
