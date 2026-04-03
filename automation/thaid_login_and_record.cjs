@@ -862,25 +862,51 @@ async function fillAndSubmitLabRequest(page, item, dryRun = false) {
     // Check for "ใช้สิทธิเกิน 2 ครั้ง" confirmation
     const needsConfirm = await page.isVisible('input[name="confirmPid"]').catch(() => false);
     if (needsConfirm) {
+        console.log('[Lab] Over-limit confirmation — filling PID');
         await page.fill('input[name="confirmPid"]', pid);
         await page.click('input[name="btnSubmit"]');
         await page.waitForLoadState('networkidle').catch(() => {});
         await delay(2000);
     }
 
-    // Extract lab code
-    const labCode = await page.evaluate(() => {
-        const tds = [...document.querySelectorAll('td')];
-        const labelTd = tds.find(td => td.textContent.includes('เลขที่ใบส่งตรวจทางห้องปฏิบัติการ'));
-        if (labelTd) {
-            const nextTd = labelTd.nextElementSibling;
-            return nextTd ? nextTd.textContent.trim() : null;
+    // Click ตกลง on any confirm pages (loop like VCT)
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const confirmBtn = await page.$('input[value="ตกลง"]');
+        if (confirmBtn && await confirmBtn.isVisible()) {
+            console.log('[Lab] Confirm page — clicking ตกลง');
+            await confirmBtn.click();
+            await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+            await delay(2000);
+        } else {
+            break;
         }
-        const text = document.body.innerText;
-        const match = text.match(/ANTIHIV-[\d-]+/);
-        return match ? match[0] : null;
-    });
+    }
 
+    // Extract lab code — retry a few times
+    let labCode = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        labCode = await page.evaluate(() => {
+            const text = document.body.innerText;
+            // Look for ANTIHIV pattern
+            const match = text.match(/ANTIHIV-[\d-]+/);
+            if (match) return match[0];
+
+            // Fallback: look in table cells
+            const tds = [...document.querySelectorAll('td')];
+            const labelTd = tds.find(td => td.textContent.includes('เลขที่ใบส่งตรวจทางห้องปฏิบัติการ'));
+            if (labelTd) {
+                const nextTd = labelTd.nextElementSibling;
+                return nextTd ? nextTd.textContent.trim() : null;
+            }
+            return null;
+        });
+
+        if (labCode) break;
+        console.log(`[Lab] Code not found yet (attempt ${attempt + 1}/3) — waiting...`);
+        await delay(2000);
+    }
+
+    console.log(`[Lab] Extracted code: ${labCode}`);
     return labCode;
 }
 
