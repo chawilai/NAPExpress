@@ -682,12 +682,54 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         // 10. Couple counseling: ไม่มีคู่ (3)
         clickRadio('post_test_couple_result_status', '3');
 
-        // 11. STI: ไม่ส่งต่อ (2) — trigger NAP Plus onclick to show sub-options
-        const stiRadio = document.querySelector('#post_test_sti_2');
-        if (stiRadio) {
-            stiRadio.click();
-            if (typeof doclick_post_test_sti === 'function') {
-                doclick_post_test_sti('2', true);
+        // 11. STI — check if any STI results exist
+        const sti = data.sti || {};
+        const hasStiResult = sti.syphilis || sti.ct || sti.ng;
+
+        if (hasStiResult) {
+            // ส่งต่อ (1) → ได้รับการตรวจ (Y)
+            const stiForward = document.querySelector('#post_test_sti_1');
+            if (stiForward) {
+                stiForward.click();
+                if (typeof doclick_post_test_sti === 'function') {
+                    doclick_post_test_sti('1', true);
+                }
+            }
+            // ได้รับการตรวจ
+            const stiChecked = document.querySelector('#post_test_sti_send_2');
+            if (stiChecked) {
+                stiChecked.click();
+                if (typeof doclick_post_test_sti_send === 'function') {
+                    doclick_post_test_sti_send('Y', true);
+                }
+            }
+            // Syphilis
+            if (sti.syphilis) {
+                clickCheckbox('post_test_sti_syphilis');
+                if (typeof doclick_post_test_sti_syphilis === 'function') {
+                    doclick_post_test_sti_syphilis('Y', true);
+                }
+                // ผลบวก → เลือก TPHA
+                if (sti.syphilis === 'R') {
+                    clickCheckbox('post_test_sti_syphilis_vdrl');
+                }
+            }
+            // Gonorrhea
+            if (sti.ng) {
+                clickCheckbox('post_test_sti_gonorrhea');
+            }
+            // Chlamydia
+            if (sti.ct) {
+                clickCheckbox('post_test_sti_chlamydia');
+            }
+        } else {
+            // ไม่ส่งต่อ (2)
+            const stiRadio = document.querySelector('#post_test_sti_2');
+            if (stiRadio) {
+                stiRadio.click();
+                if (typeof doclick_post_test_sti === 'function') {
+                    doclick_post_test_sti('2', true);
+                }
             }
         }
 
@@ -704,20 +746,24 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
                 condomCheckboxControl(condomY);
             }
         }
-    }, { kp, kpIndex, uic });
+    }, { kp, kpIndex, uic, sti: item.sti || {} });
 
-    // STI sub-option: ไม่มีข้อบ่งชี้ (must run after NAP Plus shows sub-options)
-    await delay(300);
-    await page.evaluate(() => {
-        const stiNotFwd = document.querySelector('#post_test_sti_not_forward_1');
-        if (stiNotFwd) {
-            stiNotFwd.disabled = false;
-            stiNotFwd.click();
-            if (typeof doclick_post_test_sti_not_forward === 'function') {
-                doclick_post_test_sti_not_forward('1', true);
+    // STI sub-option: only needed when "ไม่ส่งต่อ" was selected (no STI results)
+    const sti = item.sti || {};
+    const hasStiResult = sti.syphilis || sti.ct || sti.ng;
+    if (!hasStiResult) {
+        await delay(300);
+        await page.evaluate(() => {
+            const stiNotFwd = document.querySelector('#post_test_sti_not_forward_1');
+            if (stiNotFwd) {
+                stiNotFwd.disabled = false;
+                stiNotFwd.click();
+                if (typeof doclick_post_test_sti_not_forward === 'function') {
+                    doclick_post_test_sti_not_forward('1', true);
+                }
             }
-        }
-    });
+        });
+    }
 
     // Fill date fields via Playwright fill
     await page.fill('#pre_test_date', serviceDate).catch(() => {});
