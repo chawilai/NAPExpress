@@ -33,7 +33,7 @@ class AutoNapJobController extends Controller
         $rules = [
             'site' => ['required', 'string'],
             'fy' => ['required', 'string'],
-            'form_type' => ['nullable', 'string'],
+            'form_type' => ['nullable', 'string', 'in:RR,VCT,rr,vct'],
             'method' => ['nullable', 'string'],
             'dry_run' => ['nullable', 'boolean'],
             'nap_username' => ['nullable', 'string'],

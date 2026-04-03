@@ -578,8 +578,8 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await delay(2000);
 
-    // Confirm: click ตกลง
-    const confirmBtn = await page.$('input#cmdPreview');
+    // Confirm: click ตกลง (confirm page uses different button from บันทึก)
+    const confirmBtn = await page.$('input[value="ตกลง"]');
     if (confirmBtn && await confirmBtn.isVisible()) {
         await confirmBtn.click();
         await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
