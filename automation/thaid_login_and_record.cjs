@@ -79,7 +79,7 @@ async function sendCallback(callbackUrl, payload) {
     }
 }
 
-function buildVctCallback(item, fy, vctCode) {
+function buildBasePayload(item, fy) {
     return {
         form_type: 'VCT',
         source_id: item.source_id,
@@ -88,49 +88,46 @@ function buildVctCallback(item, fy, vctCode) {
         id_card: item.id_card,
         kp: item.kp,
         fy: fy,
-        nap_vct_code: vctCode,
-        vct_nap_status: 'true',
         nap_staff: item.cbs || 'AutoNAP',
-        nap_comment: 'AutoNAP',
         status: 'success',
         row_id: item.row_id,
+    };
+}
+
+function buildVctCallback(item, fy, vctCode) {
+    return {
+        ...buildBasePayload(item, fy),
+        nap_vct_code: vctCode,
+        vct_nap_status: 'true',
+        nap_comment: 'VCT AutoNAP',
     };
 }
 
 function buildLabCallback(item, fy, labCode) {
     return {
-        form_type: 'VCT',
-        source_id: item.source_id,
-        source: item.source,
-        uic: item.uic || null,
-        id_card: item.id_card,
-        kp: item.kp,
-        fy: fy,
+        ...buildBasePayload(item, fy),
         nap_code: labCode,
         nap_lab_code: labCode,
         nap_status: 'true',
-        nap_staff: item.cbs || 'AutoNAP',
-        nap_comment: 'AutoNAP',
-        status: 'success',
-        row_id: item.row_id,
+        nap_comment: 'VCT, Lab AutoNAP',
+    };
+}
+
+function buildResultCallback(item, fy, hivResult) {
+    return {
+        ...buildBasePayload(item, fy),
+        hiv_result: hivResult,
+        nap_status: 'true',
+        nap_comment: 'VCT, Lab, Result AutoNAP',
     };
 }
 
 function buildErrorCallback(item, fy, error, vctCode) {
     return {
-        form_type: 'VCT',
-        source_id: item.source_id,
-        source: item.source,
-        uic: item.uic || null,
-        id_card: item.id_card,
-        kp: item.kp,
-        fy: fy,
+        ...buildBasePayload(item, fy),
         nap_vct_code: vctCode || null,
         nap_status: 'true',
-        nap_staff: item.cbs || 'AutoNAP',
         nap_comment: (error || '') + ' AutoNAP',
-        status: 'success',
-        row_id: item.row_id,
     };
 }
 
@@ -957,6 +954,68 @@ async function fillAndSubmitLabRequest(page, item, dryRun = false) {
 }
 
 // ============================================================
+// Step 2d: Fill HIV test result
+// ============================================================
+
+async function fillAndSubmitHivResult(page, labCode, testDate, hivResult, dryRun = false) {
+    // Map result string to value
+    const resultMap = { 'Positive': '1', 'Negative': '2', 'Inconclusive': '3' };
+    const resultValue = resultMap[hivResult] || '2'; // default Negative
+
+    // Navigate to response lab request page
+    const resultUrl = 'https://dmis.nhso.go.th/NAPPLUS/responseLabRequest/searchResponseLabRequest.do?actionName=search_init';
+    await page.goto(resultUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    if (page.url().includes('iam.nhso.go.th')) {
+        throw new Error('Session expired — redirected to login (HIV result)');
+    }
+
+    // Fill search
+    await page.fill('#lab_request_id', labCode);
+    await page.selectOption('#lab_type', '1:001');
+    await delay(500);
+
+    // Click ค้นหา
+    await page.click('input[name="cmdSearch"]');
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await delay(2000);
+
+    // Check if result row exists
+    const hasRow = await page.evaluate(() => !!document.querySelector('#labreq_id_0'));
+    if (!hasRow) {
+        throw new Error(`ไม่พบข้อมูล Lab ${labCode} ในระบบ`);
+    }
+
+    if (dryRun) {
+        return 'DRY_RUN_RESULT';
+    }
+
+    // Fill result
+    await page.fill('#lab_test_date_0', testDate);
+    await page.selectOption('#lab_status_0', '1'); // ตรวจได้
+    await delay(300);
+    await page.selectOption('#lab_result_0', resultValue);
+    await delay(300);
+
+    // Set change flag (required for save)
+    await page.evaluate(() => {
+        const flag = document.querySelector('#change_result_0');
+        if (flag) flag.value = 'Y';
+    });
+
+    // Save via doConfirm()
+    console.log(`[Result] Saving: ${labCode} → ${hivResult} (${resultValue})`);
+    await page.evaluate(() => {
+        if (typeof doConfirm === 'function') doConfirm();
+    });
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await delay(2000);
+
+    return hivResult;
+}
+
+// ============================================================
 // Main
 // ============================================================
 
@@ -1158,6 +1217,38 @@ async function run() {
                                     message: `✅ Lab สำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | ANTIHIV: ${labCode}`,
                                 }, 300);
                                 await sendCallback(cbUrl, buildLabCallback(item, jobFy, labCode));
+                            }
+
+                            // Step 3: Test Result (if needed)
+                            if (labCode && item.test_result && item.hiv_result) {
+                                try {
+                                    await ably?.publish('job:record:filling', {
+                                        jobId, index: i + 1, total,
+                                        message: `🧪 กำลังลงผลตรวจ HIV... (${i + 1}/${total})`,
+                                    }, 500);
+                                    const serviceDate = item.service_date;
+                                    if (!isDryRun) {
+                                        await fillAndSubmitHivResult(page, labCode, serviceDate, item.hiv_result, false);
+                                    } else {
+                                        await fillAndSubmitHivResult(page, labCode, serviceDate, item.hiv_result, true);
+                                    }
+                                    log(jobId, `  Record ${i + 1}: Result = ${item.hiv_result}`);
+
+                                    // Callback #3: Test result
+                                    if (!isDryRun && cbUrl) {
+                                        await ably?.publish('job:record:success', {
+                                            jobId, index: i + 1, total, uic, pidMasked,
+                                            message: `✅ ลงผลสำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | ผล: ${item.hiv_result}`,
+                                        }, 300);
+                                        await sendCallback(cbUrl, buildResultCallback(item, jobFy, item.hiv_result));
+                                    }
+                                } catch (resultErr) {
+                                    log(jobId, `  Record ${i + 1}: Result error = ${resultErr.message}`);
+                                    await ably?.publish('job:record:failed', {
+                                        jobId, index: i + 1, total, error: resultErr.message, uic,
+                                        message: `❌ ลงผล HIV ล้มเหลว (${i + 1}/${total}) | ${resultErr.message}`,
+                                    }, 300);
+                                }
                             }
                         } catch (labErr) {
                             log(jobId, `  Record ${i + 1}: Lab error = ${labErr.message}`);
