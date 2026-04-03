@@ -1153,13 +1153,21 @@ async function run() {
                 }
 
                 if (isVCT) {
-                    // === VCT Flow (2-step callback) ===
+                    // === VCT Flow (multi-step callback) ===
                     let vctCode = item.nap_vct_code || null;
-                    let labCode = null;
+                    let labCode = item.nap_code || null;
                     const skipVCT = !!vctCode;
+                    const skipLab = !!labCode;
 
                     // Step 1: Record VCT
-                    if (skipVCT) {
+                    if (skipVCT && skipLab && item.test_result) {
+                        // Skip both VCT + Lab → go straight to test result
+                        log(jobId, `  Record ${i + 1}: VCT=${vctCode} Lab=${labCode} — skipping to Test Result`);
+                        await ably?.publish('job:record:filling', {
+                            jobId, index: i + 1, total,
+                            message: `⏭️ มี VCT + Lab แล้ว — ข้ามไปลงผลตรวจ HIV`,
+                        }, 300);
+                    } else if (skipVCT) {
                         log(jobId, `  Record ${i + 1}: VCT code exists (${vctCode}) — skipping VCT`);
                         await ably?.publish('job:record:filling', {
                             jobId, index: i + 1, total,
@@ -1202,8 +1210,8 @@ async function run() {
                         }
                     }
 
-                    // Step 2: Request Lab (if needed)
-                    if (vctCode && item.request_lab) {
+                    // Step 2: Request Lab (if needed and not already done)
+                    if (vctCode && item.request_lab && !skipLab) {
                         try {
                             await ably?.publish('job:record:filling', {
                                 jobId, index: i + 1, total,
@@ -1225,42 +1233,43 @@ async function run() {
                                 await sendCallback(cbUrl, buildLabCallback(item, jobFy, labCode));
                             }
 
-                            // Step 3: Test Result (if needed)
-                            if (labCode && item.test_result && item.hiv_result) {
-                                try {
-                                    await ably?.publish('job:record:filling', {
-                                        jobId, index: i + 1, total,
-                                        message: `🧪 กำลังลงผลตรวจ HIV... (${i + 1}/${total})`,
-                                    }, 500);
-                                    const serviceDate = item.service_date;
-                                    if (!isDryRun) {
-                                        await fillAndSubmitHivResult(page, labCode, serviceDate, item.hiv_result, false);
-                                    } else {
-                                        await fillAndSubmitHivResult(page, labCode, serviceDate, item.hiv_result, true);
-                                    }
-                                    log(jobId, `  Record ${i + 1}: Result = ${item.hiv_result}`);
-
-                                    // Callback #3: Test result
-                                    if (!isDryRun && cbUrl) {
-                                        await ably?.publish('job:record:success', {
-                                            jobId, index: i + 1, total, uic, pidMasked,
-                                            message: `✅ ลงผลสำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | ผล: ${item.hiv_result}`,
-                                        }, 300);
-                                        await sendCallback(cbUrl, buildResultCallback(item, jobFy, item.hiv_result));
-                                    }
-                                } catch (resultErr) {
-                                    log(jobId, `  Record ${i + 1}: Result error = ${resultErr.message}`);
-                                    await ably?.publish('job:record:failed', {
-                                        jobId, index: i + 1, total, error: resultErr.message, uic,
-                                        message: `❌ ลงผล HIV ล้มเหลว (${i + 1}/${total}) | ${resultErr.message}`,
-                                    }, 300);
-                                }
-                            }
                         } catch (labErr) {
                             log(jobId, `  Record ${i + 1}: Lab error = ${labErr.message}`);
                             await ably?.publish('job:record:failed', {
                                 jobId, index: i + 1, total, error: labErr.message, uic,
                                 message: `❌ Lab ล้มเหลว (${i + 1}/${total}) | ${labErr.message}`,
+                            }, 300);
+                        }
+                    }
+
+                    // Step 3: Test Result (runs with new or existing labCode)
+                    if (labCode && item.test_result && item.hiv_result) {
+                        try {
+                            await ably?.publish('job:record:filling', {
+                                jobId, index: i + 1, total,
+                                message: `🧪 กำลังลงผลตรวจ HIV... (${i + 1}/${total})`,
+                            }, 500);
+                            const serviceDate = item.service_date;
+                            if (!isDryRun) {
+                                await fillAndSubmitHivResult(page, labCode, serviceDate, item.hiv_result, false);
+                            } else {
+                                await fillAndSubmitHivResult(page, labCode, serviceDate, item.hiv_result, true);
+                            }
+                            log(jobId, `  Record ${i + 1}: Result = ${item.hiv_result}`);
+
+                            // Callback #3: Test result
+                            if (!isDryRun && cbUrl) {
+                                await ably?.publish('job:record:success', {
+                                    jobId, index: i + 1, total, uic, pidMasked,
+                                    message: `✅ ลงผลสำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | ผล: ${item.hiv_result}`,
+                                }, 300);
+                                await sendCallback(cbUrl, buildResultCallback(item, jobFy, item.hiv_result));
+                            }
+                        } catch (resultErr) {
+                            log(jobId, `  Record ${i + 1}: Result error = ${resultErr.message}`);
+                            await ably?.publish('job:record:failed', {
+                                jobId, index: i + 1, total, error: resultErr.message, uic,
+                                message: `❌ ลงผล HIV ล้มเหลว (${i + 1}/${total}) | ${resultErr.message}`,
                             }, 300);
                         }
                     }
