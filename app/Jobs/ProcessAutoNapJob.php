@@ -7,6 +7,7 @@ use App\Services\NapCallbackService;
 use App\Services\NapDirectHttpService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 
@@ -88,6 +89,7 @@ class ProcessAutoNapJob implements ShouldQueue
 
         if (! file_exists($resultsFile)) {
             Log::error("ThaiID: No results file — script failed for job {$this->jobId}");
+            Cache::forget("autonap:{$this->site}:{$this->formType}");
             $this->cleanup($dataFile);
 
             return;
@@ -133,6 +135,9 @@ class ProcessAutoNapJob implements ShouldQueue
         }
 
         Log::info("AutoNAP {$this->formType} job completed: {$this->jobId}", compact('total', 'success', 'failed'));
+
+        // Release site lock so next job can run
+        Cache::forget("autonap:{$this->site}:{$this->formType}");
 
         $this->cleanup($dataFile, $resultsFile);
     }

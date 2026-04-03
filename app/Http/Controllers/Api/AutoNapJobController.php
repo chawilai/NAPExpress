@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessAutoNapJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class AutoNapJobController extends Controller
@@ -67,7 +68,24 @@ class AutoNapJobController extends Controller
             ], 422);
         }
 
+        // Reject if same site + form_type already has a job running
+        $site = $validated['site'];
+        $lockKey = "autonap:{$site}:{$formType}";
+
+        if (Cache::has($lockKey)) {
+            $runningJobId = Cache::get($lockKey);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => "Site {$site} มี job {$formType} กำลังทำงานอยู่ ({$runningJobId}) กรุณารอให้เสร็จก่อน",
+                'running_job_id' => $runningJobId,
+            ], 429);
+        }
+
         $jobId = 'autonap-'.bin2hex(random_bytes(8));
+
+        // Lock for 1 hour (max job duration) — released when job completes
+        Cache::put($lockKey, $jobId, 3600);
 
         // Use full items from request (not $validated which strips extra rr_form fields)
         $items = $request->input('items');
