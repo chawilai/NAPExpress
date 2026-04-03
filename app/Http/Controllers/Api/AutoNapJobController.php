@@ -100,7 +100,7 @@ class AutoNapJobController extends Controller
             'message' => $method === 'ThaiID'
                 ? 'Job dispatched. QR code will be sent via Ably — scan with ThaiD app.'
                 : 'Job dispatched. Subscribe to Ably channel for progress.',
-            'ably_channel' => $validated['ably_channel'],
+            'ably_channel' => $validated['ably_channel'] ?? null,
         ]);
     }
 
