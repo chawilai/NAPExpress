@@ -557,32 +557,44 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         // 12. เมทาโดน: ไม่ได้รับ (2)
         clickRadio('post_test_methadone', '2');
 
-        // 13. ถุงยาง: รับ
+        // 13. ถุงยาง: รับ — must trigger onclick handler to show amount fields
         const condomY = document.querySelector('input[name="condom_receive_y"]');
-        if (condomY) condomY.click();
+        if (condomY) {
+            condomY.checked = true;
+            condomY.click();
+            // Trigger NAP Plus's condomCheckboxControl if available
+            if (typeof condomCheckboxControl === 'function') {
+                condomCheckboxControl(condomY);
+            }
+        }
     }, { kp, kpIndex, uic });
 
     // Fill date fields via Playwright fill
     await page.fill('#pre_test_date', serviceDate).catch(() => {});
     await page.fill('#post_test_date', serviceDate).catch(() => {});
 
-    // Condom — unhide fields first (VCT form hides them by default)
+    // Condom — unhide fields + set values via DOM (NAP Plus hides them by default)
+    await delay(500);
     await page.evaluate(() => {
-        // Unhide condom amount inputs and labels
+        // Unhide ALL condom-related elements
         ['49', '52', '53', '54', '56'].forEach(s => {
             const inp = document.querySelector(`#condom_amount_${s}`);
-            if (inp) inp.style.display = 'inline';
-            // Unhide associated labels
+            if (inp) { inp.style.display = 'inline'; inp.removeAttribute('disabled'); }
             const label = document.querySelector(`#label_${s}`);
             if (label) label.style.display = 'inline';
         });
-        // Unhide lubricant
         const lubInput = document.querySelector('#lubricant_amount');
-        if (lubInput) lubInput.style.display = 'inline';
+        if (lubInput) { lubInput.style.display = 'inline'; lubInput.removeAttribute('disabled'); }
         const lubLabel = document.querySelector('#label_lubricant');
         if (lubLabel) lubLabel.style.display = 'inline';
+
+        // Set values directly via DOM as fallback
+        const c53 = document.querySelector('#condom_amount_53');
+        if (c53) { c53.value = '10'; c53.dispatchEvent(new Event('change', { bubbles: true })); }
+        const lub = document.querySelector('#lubricant_amount');
+        if (lub) { lub.value = '10'; lub.dispatchEvent(new Event('change', { bubbles: true })); }
     });
-    await delay(300);
+    // Also try Playwright fill as backup
     await page.fill('#condom_amount_53', '10').catch(() => {});
     await page.fill('#lubricant_amount', '10').catch(() => {});
 
