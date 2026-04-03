@@ -22,13 +22,18 @@ class AutoNapJobController extends Controller
         // Log incoming request for debugging
         Log::info('AutoNAP job request received', [
             'site' => $request->input('site'),
+            'form_type' => $request->input('form_type', 'RR'),
             'items_count' => count($request->input('items', [])),
             'items' => $request->input('items'),
         ]);
 
-        $validated = $request->validate([
+        $formType = strtoupper($request->input('form_type', 'RR'));
+
+        // Base validation rules (shared by all form types)
+        $rules = [
             'site' => ['required', 'string'],
             'fy' => ['required', 'string'],
+            'form_type' => ['nullable', 'string'],
             'method' => ['nullable', 'string'],
             'dry_run' => ['nullable', 'boolean'],
             'nap_username' => ['nullable', 'string'],
@@ -39,10 +44,20 @@ class AutoNapJobController extends Controller
             'items.*.source_id' => ['required'],
             'items.*.source' => ['required', 'string'],
             'items.*.id_card' => ['required', 'string', 'size:13'],
-            'items.*.rr_form' => ['required', 'array'],
-            'items.*.rr_form.pid' => ['required', 'string'],
-            'items.*.rr_form.rrttrDate' => ['required', 'string'],
-        ]);
+        ];
+
+        // Form-type-specific item validation
+        if ($formType === 'VCT') {
+            $rules['items.*.service_date'] = ['required', 'string'];
+            $rules['items.*.kp'] = ['required', 'string'];
+            $rules['items.*.cbs'] = ['required', 'string'];
+        } else {
+            $rules['items.*.rr_form'] = ['required', 'array'];
+            $rules['items.*.rr_form.pid'] = ['required', 'string'];
+            $rules['items.*.rr_form.rrttrDate'] = ['required', 'string'];
+        }
+
+        $validated = $request->validate($rules);
 
         // Normalize method: accept any case
         $rawMethod = strtolower($validated['method'] ?? 'thaid');
@@ -78,11 +93,13 @@ class AutoNapJobController extends Controller
             items: $items,
             method: $method,
             dryRun: (bool) ($validated['dry_run'] ?? false),
+            formType: $formType,
         );
 
         return response()->json([
             'status' => 'ok',
             'job_id' => $jobId,
+            'form_type' => $formType,
             'method' => $method,
             'total' => count($validated['items']),
             'message' => $method === 'ThaiID'
