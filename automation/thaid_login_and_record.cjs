@@ -523,19 +523,19 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         await page.waitForLoadState('networkidle').catch(() => {});
         await delay(1500);
 
-        // Check page content for errors
-        const pageContent = await page.evaluate(() => {
+        // Check for NAP Plus error alert (e.g. duplicate VCT date)
+        const alertText = await page.evaluate(() => {
             const alert = document.querySelector('table.alert td.text');
-            const allText = document.body.innerText.substring(0, 300);
-            return { alert: alert?.textContent?.trim(), text: allText };
+            return alert?.textContent?.trim() || null;
         });
-        console.log(`[VCT] After re-search: alert=${pageContent.alert || 'none'}`);
-        console.log(`[VCT] Page text: ${pageContent.text.substring(0, 200)}`);
 
-        // Check for another confirm
+        if (alertText) {
+            throw new Error(alertText);
+        }
+
+        // Check for another confirm page
         const confirmBtn2 = await page.$('input[value="ตกลง"]');
         if (confirmBtn2 && await confirmBtn2.isVisible()) {
-            console.log('[VCT] Second confirm page — clicking ตกลง');
             await confirmBtn2.click();
             await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
             await delay(1500);
@@ -544,12 +544,11 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
 
     // Verify we're on the VCT form (not search page)
     if (page.url().includes('actionName=load')) {
-        // Get error details for better debugging
-        const errDetail = await page.evaluate(() => {
+        const alertText = await page.evaluate(() => {
             const alert = document.querySelector('table.alert td.text');
-            return alert?.textContent?.trim() || document.body.innerText.substring(0, 200);
+            return alert?.textContent?.trim() || null;
         });
-        throw new Error(`ไม่สามารถเข้าฟอร์ม VCT ได้: ${errDetail}`);
+        throw new Error(alertText || 'ไม่สามารถเข้าฟอร์ม VCT ได้');
     }
 
     // Fill VCT form via DOM
