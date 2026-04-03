@@ -551,8 +551,14 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         // 10. Couple counseling: ไม่มีคู่ (3)
         clickRadio('post_test_couple_result_status', '3');
 
-        // 11. STI: ไม่ส่งต่อ (2)
-        clickRadio('post_test_sti', '2');
+        // 11. STI: ไม่ส่งต่อ (2) — trigger NAP Plus onclick to show sub-options
+        const stiRadio = document.querySelector('#post_test_sti_2');
+        if (stiRadio) {
+            stiRadio.click();
+            if (typeof doclick_post_test_sti === 'function') {
+                doclick_post_test_sti('2', true);
+            }
+        }
 
         // 12. เมทาโดน: ไม่ได้รับ (2)
         clickRadio('post_test_methadone', '2');
@@ -568,6 +574,19 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
             }
         }
     }, { kp, kpIndex, uic });
+
+    // STI sub-option: ไม่มีข้อบ่งชี้ (must run after NAP Plus shows sub-options)
+    await delay(300);
+    await page.evaluate(() => {
+        const stiNotFwd = document.querySelector('#post_test_sti_not_forward_1');
+        if (stiNotFwd) {
+            stiNotFwd.disabled = false;
+            stiNotFwd.click();
+            if (typeof doclick_post_test_sti_not_forward === 'function') {
+                doclick_post_test_sti_not_forward('1', true);
+            }
+        }
+    });
 
     // Fill date fields via Playwright fill
     await page.fill('#pre_test_date', serviceDate).catch(() => {});
