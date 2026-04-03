@@ -797,18 +797,28 @@ async function run() {
 
                 if (isVCT) {
                     // === VCT Flow ===
-                    const vctResult = await fillAndSubmitVCT(page, item, isDryRun);
-
-                    let vctCode = null;
+                    let vctCode = item.nap_vct_code || null;
                     let labCode = null;
+                    const skipVCT = !!vctCode;
 
-                    if (isDryRun && vctResult?.dryRun) {
-                        vctCode = 'DRY_RUN';
+                    // Skip VCT if nap_vct_code already exists
+                    if (skipVCT) {
+                        log(jobId, `  Record ${i + 1}: VCT code exists (${vctCode}) — skipping VCT, going to Lab`);
+                        await ably?.publish('job:record:filling', {
+                            jobId, index: i + 1, total,
+                            message: `⏭️ มี VCT ID แล้ว (${vctCode}) — ข้ามไปทำ Request Lab`,
+                        }, 300);
                     } else {
-                        vctCode = vctResult;
+                        const vctResult = await fillAndSubmitVCT(page, item, isDryRun);
+
+                        if (isDryRun && vctResult?.dryRun) {
+                            vctCode = 'DRY_RUN';
+                        } else {
+                            vctCode = vctResult;
+                        }
                     }
 
-                    // Request Lab if needed
+                    // Request Lab if needed (either after VCT or skip-to-lab)
                     if (vctCode && !isDryRun && item.request_lab) {
                         try {
                             await ably?.publish('job:record:filling', {
@@ -825,7 +835,7 @@ async function run() {
                     }
 
                     if (vctCode) {
-                        log(jobId, `  Record ${i + 1}: VCT=${vctCode} Lab=${labCode || 'N/A'}`);
+                        log(jobId, `  Record ${i + 1}: VCT=${vctCode} Lab=${labCode || 'N/A'}${skipVCT ? ' (VCT skipped)' : ''}`);
                         results.push({
                             id_card: item.id_card, success: true,
                             nap_code: vctCode, nap_lab_code: labCode,

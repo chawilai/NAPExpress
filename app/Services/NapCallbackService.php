@@ -28,7 +28,7 @@ class NapCallbackService
         $service = $rowData['service'] ?? [];
 
         // Support both nested (ReportingJob) and flat (ProcessAutoNapJob) item structures
-        return [
+        $payload = [
             'form_type' => $formType,
             'source_id' => $service['source_id'] ?? $rowData['source_id'] ?? null,
             'source' => $context['source'] ?? $rowData['source'] ?? null,
@@ -36,13 +36,21 @@ class NapCallbackService
             'id_card' => $identification['pid'] ?? $rrForm['pid'] ?? $rowData['id_card'] ?? null,
             'kp' => $person['kp'] ?? $rowData['kp'] ?? null,
             'fy' => $context['fy'] ?? $rowData['fy'] ?? null,
-            'nap_code' => $napCode,
-            'nap_lab_code' => $napLabCode,
             'nap_comment' => trim(($comment ?: '').' AutoNAP'),
             'nap_staff' => $rowData['cbs'] ?? 'AutoNAP',
             'status' => $status,
             'row_id' => $rowData['row_id'] ?? null,
         ];
+
+        // VCT uses nap_vct_code + nap_lab_code; RR uses nap_code
+        if ($formType === 'VCT') {
+            $payload['nap_vct_code'] = $napCode;
+            $payload['nap_lab_code'] = $napLabCode;
+        } else {
+            $payload['nap_code'] = $napCode;
+        }
+
+        return $payload;
     }
 
     /**
