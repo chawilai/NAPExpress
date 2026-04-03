@@ -574,29 +574,46 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
     await page.fill('#post_test_date', serviceDate).catch(() => {});
 
     // Condom — unhide fields + set values via DOM (NAP Plus hides them by default)
+    // Use item values if provided, otherwise default 10 per size
+    const condomDefaults = {
+        '49': item.condom_49 || '10',
+        '52': item.condom_52 || '10',
+        '53': item.condom_53 || '10',
+        '54': item.condom_54 || '10',
+        '56': item.condom_56 || '10',
+    };
+    const lubricantAmount = item.lubricant || '10';
+
     await delay(500);
-    await page.evaluate(() => {
-        // Unhide ALL condom-related elements
+    await page.evaluate((data) => {
+        // Unhide ALL condom-related elements + set values
         ['49', '52', '53', '54', '56'].forEach(s => {
             const inp = document.querySelector(`#condom_amount_${s}`);
-            if (inp) { inp.style.display = 'inline'; inp.removeAttribute('disabled'); }
+            if (inp) {
+                inp.style.display = 'inline';
+                inp.removeAttribute('disabled');
+                inp.value = data.condoms[s];
+                inp.dispatchEvent(new Event('change', { bubbles: true }));
+            }
             const label = document.querySelector(`#label_${s}`);
             if (label) label.style.display = 'inline';
         });
         const lubInput = document.querySelector('#lubricant_amount');
-        if (lubInput) { lubInput.style.display = 'inline'; lubInput.removeAttribute('disabled'); }
+        if (lubInput) {
+            lubInput.style.display = 'inline';
+            lubInput.removeAttribute('disabled');
+            lubInput.value = data.lubricant;
+            lubInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
         const lubLabel = document.querySelector('#label_lubricant');
         if (lubLabel) lubLabel.style.display = 'inline';
+    }, { condoms: condomDefaults, lubricant: lubricantAmount });
 
-        // Set values directly via DOM as fallback
-        const c53 = document.querySelector('#condom_amount_53');
-        if (c53) { c53.value = '10'; c53.dispatchEvent(new Event('change', { bubbles: true })); }
-        const lub = document.querySelector('#lubricant_amount');
-        if (lub) { lub.value = '10'; lub.dispatchEvent(new Event('change', { bubbles: true })); }
-    });
     // Also try Playwright fill as backup
-    await page.fill('#condom_amount_53', '10').catch(() => {});
-    await page.fill('#lubricant_amount', '10').catch(() => {});
+    for (const [size, amount] of Object.entries(condomDefaults)) {
+        await page.fill(`#condom_amount_${size}`, String(amount)).catch(() => {});
+    }
+    await page.fill('#lubricant_amount', String(lubricantAmount)).catch(() => {});
 
     if (dryRun) {
         await page.screenshot({ path: `automation/screenshots/dryrun_vct_${pid}.png`, fullPage: true });
