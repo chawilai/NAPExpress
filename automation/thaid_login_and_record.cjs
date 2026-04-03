@@ -523,9 +523,6 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         await page.waitForLoadState('networkidle').catch(() => {});
         await delay(1500);
 
-        // Screenshot after re-search
-        await page.screenshot({ path: 'automation/screenshots/vct_after_research.png', fullPage: true }).catch(() => {});
-
         // Check page content for errors
         const pageContent = await page.evaluate(() => {
             const alert = document.querySelector('table.alert td.text');
@@ -694,9 +691,6 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         await page.screenshot({ path: `automation/screenshots/dryrun_vct_${pid}.png`, fullPage: true });
         return { dryRun: true, vct_code: 'DRY_RUN' };
     }
-
-    // Debug: screenshot before submit
-    await page.screenshot({ path: 'automation/screenshots/vct_before_submit.png', fullPage: true }).catch(() => {});
 
     // Check what buttons exist
     const buttons = await page.evaluate(() => {
