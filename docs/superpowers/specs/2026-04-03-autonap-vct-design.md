@@ -119,11 +119,54 @@ AutoNAP POSTs to `callback_url` after each record:
 | Post-test | `#post_test_status_y` | "ทำ" | |
 | Post-test date | `#post_test_date` | = `service_date` | |
 | Couple counseling | `#post_test_couple_result_status_3` | ไม่มีคู่ (value 3) | |
-| STI ส่งต่อ | `#post_test_sti_2` | ไม่ส่งต่อ (value 2) | |
+| STI ส่งต่อ | ดู STI Logic ด้านล่าง | ขึ้นกับ `item.sti` | ถ้ามีผล STI → ส่งต่อ, ถ้าไม่มี → ไม่ส่งต่อ |
 | เมทาโดน | `#post_test_methadone_2` | ไม่ได้รับ (value 2) | |
-| ถุงยาง | `condom_receive_y` | รับ | |
-| ถุงยาง 53mm | `#condom_amount_53` | `"10"` | |
-| สารหล่อลื่น | `#lubricant_amount` | `"10"` | |
+| ถุงยาง | `condom_receive_y` | รับ | trigger `condomCheckboxControl()` |
+| ถุงยาง 49mm | `#condom_amount_49` | `"10"` | override ได้ด้วย `item.condom_49` |
+| ถุงยาง 52mm | `#condom_amount_52` | `"10"` | override ได้ด้วย `item.condom_52` |
+| ถุงยาง 53mm | `#condom_amount_53` | `"10"` | override ได้ด้วย `item.condom_53` |
+| ถุงยาง 54mm | `#condom_amount_54` | `"10"` | override ได้ด้วย `item.condom_54` |
+| ถุงยาง 56mm | `#condom_amount_56` | `"10"` | override ได้ด้วย `item.condom_56` |
+| สารหล่อลื่น | `#lubricant_amount` | `"10"` | override ได้ด้วย `item.lubricant` |
+
+### STI Logic (การส่งต่อ STI)
+
+CAREMAT ส่ง `sti` object ใน item (optional):
+
+```json
+{
+  "sti": {
+    "syphilis": "R",
+    "ct": "CT Detected",
+    "ng": null
+  }
+}
+```
+
+#### ค่า STI ที่รับได้
+
+| Field | ค่า | ความหมาย |
+|-------|-----|---------|
+| `sti.syphilis` | `"N"` | Negative |
+| | `"R"` | Reactive (บวก) |
+| | `null` / ไม่ส่ง | ไม่ได้ตรวจ |
+| `sti.ct` | `"CT Detected"` | พบเชื้อ Chlamydia |
+| | `"CT Not Detected"` | ไม่พบเชื้อ |
+| | `null` / ไม่ส่ง | ไม่ได้ตรวจ |
+| `sti.ng` | `"NG Detected"` | พบเชื้อ Gonorrhea |
+| | `"NG Not Detected"` | ไม่พบเชื้อ |
+| | `null` / ไม่ส่ง | ไม่ได้ตรวจ |
+
+#### AutoNAP กรอกตาม
+
+| เงื่อนไข | กรอกในฟอร์ม VCT |
+|----------|----------------|
+| มีผล STI อย่างน้อย 1 รายการ | ส่งต่อ → ได้รับการตรวจ |
+| `syphilis` = "N" หรือ "R" | เลือก ซิฟิลิส (Syphilis) |
+| `syphilis` = "R" (บวก) | เลือก ผลบวกและตรวจยืนยันด้วย TPHA เพิ่ม |
+| `ct` มีค่า | เลือก หนองในเทียม (Chlamydia) |
+| `ng` มีค่า | เลือก หนองใน (Gonorrhea) |
+| ไม่มีผล STI เลย (ทุก field null) | ไม่ส่งต่อ → ไม่มีข้อบ่งชี้ |
 
 ### KP → target_group_status index mapping
 
@@ -147,6 +190,66 @@ AutoNAP POSTs to `callback_url` after each record:
 | FSW | 15 | 9 |
 | Migrant | 16 | 6 |
 | สามี/คู่ของหญิงตั้งครรภ์ | 17 | 18 |
+
+### CAREMAT KP Aliases
+
+| CAREMAT ส่ง | Map เป็น | Index |
+|-------------|---------|-------|
+| `TG` | TGW | 3 |
+| `Female` | General Population | 14 |
+| `Male` | General Population | 14 |
+| `PWID-Male` | PWID | 1 |
+| `PWID-Female` | PWID | 1 |
+
+## Callback (2-step)
+
+Playwright script ส่ง callback โดยตรงไปที่ CAREMAT (ไม่ผ่าน PHP):
+
+### Callback #1 — VCT สำเร็จ
+
+```json
+{
+  "form_type": "VCT",
+  "source_id": "76140",
+  "id_card": "1550700153989",
+  "row_id": "Clinic_testing_76140_1550700153989",
+  "nap_vct_code": "V68-10681-9521214",
+  "vct_nap_status": "true",
+  "nap_staff": "นภสร ใจกาศ",
+  "nap_comment": "AutoNAP",
+  "status": "success"
+}
+```
+
+### Callback #2 — Lab สำเร็จ (เฉพาะเมื่อ `request_lab: true`)
+
+```json
+{
+  "form_type": "VCT",
+  "source_id": "76140",
+  "id_card": "1550700153989",
+  "row_id": "Clinic_testing_76140_1550700153989",
+  "nap_code": "ANTIHIV-41692-6805-18109885",
+  "nap_lab_code": "ANTIHIV-41692-6805-18109885",
+  "nap_status": "true",
+  "nap_staff": "นภสร ใจกาศ",
+  "nap_comment": "AutoNAP",
+  "status": "success"
+}
+```
+
+### Error Callback
+
+```json
+{
+  "form_type": "VCT",
+  "row_id": "Clinic_testing_76140_1550700153989",
+  "nap_vct_code": null,
+  "nap_status": "true",
+  "nap_comment": "ไม่อนุญาตให้ทำการบันทึก เนื่องจากวันที่ VCT ซ้ำ... AutoNAP",
+  "status": "success"
+}
+```
 
 ## HIV Lab Request Flow (when `request_lab: true`)
 
