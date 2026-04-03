@@ -489,7 +489,7 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
     await page.waitForLoadState('networkidle').catch(() => {});
     await delay(1500);
 
-    // Check if we're on the form page
+    // Check for error on search page
     const currentUrl = page.url();
     if (currentUrl.includes('actionName=load')) {
         const errText = await page.evaluate(() => {
@@ -497,6 +497,15 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
             return td ? td.textContent.trim() : null;
         });
         throw new Error(errText || 'ไม่สามารถเข้าฟอร์ม VCT ได้');
+    }
+
+    // Confirm page: click ตกลง (same as RR — shows patient rights info)
+    const confirmRegBtn = await page.$('input[value="ตกลง"]');
+    if (confirmRegBtn && await confirmRegBtn.isVisible()) {
+        console.log('[VCT] Confirm page detected — clicking ตกลง');
+        await confirmRegBtn.click();
+        await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+        await delay(1500);
     }
 
     // Fill VCT form via DOM
@@ -639,17 +648,38 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         return { dryRun: true, vct_code: 'DRY_RUN' };
     }
 
-    // Submit: click บันทึก
+    // Debug: screenshot before submit
+    await page.screenshot({ path: 'automation/screenshots/vct_before_submit.png', fullPage: true });
+    console.log(`[VCT] Screenshot saved: vct_before_submit.png`);
+
+    // Check what buttons exist
+    const buttons = await page.evaluate(() => {
+        const btns = [...document.querySelectorAll('input[type="button"], button')];
+        return btns.map(b => ({ id: b.id, name: b.name, value: b.value, visible: b.offsetParent !== null }));
+    });
+    console.log(`[VCT] Buttons on page: ${JSON.stringify(buttons)}`);
+
+    // Submit: click บันทึก (triggers doPreview → confirmation dialog → form submit)
+    console.log(`[VCT] Clicking บันทึก... URL: ${page.url()}`);
     await page.click('input#cmdPreview');
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await delay(2000);
+    console.log(`[VCT] After บันทึก URL: ${page.url()}`);
 
-    // Confirm: click ตกลง (confirm page uses different button from บันทึก)
+    // Check page content for confirm page or VCT ID
+    const pageText = await page.evaluate(() => document.body.innerText.substring(0, 500));
+    console.log(`[VCT] Page content: ${pageText.substring(0, 200)}`);
+
+    // Confirm: click ตกลง if on confirm page
     const confirmBtn = await page.$('input[value="ตกลง"]');
     if (confirmBtn && await confirmBtn.isVisible()) {
+        console.log('[VCT] Found ตกลง button — clicking...');
         await confirmBtn.click();
         await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
         await delay(2000);
+        console.log(`[VCT] After ตกลง URL: ${page.url()}`);
+    } else {
+        console.log('[VCT] No ตกลง button found — checking for VCT ID directly');
     }
 
     // Extract VCT ID
