@@ -551,11 +551,19 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
     }
 
     // Navigate to VCT create page
-    await page.goto(NAP_URLS.createVCT, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.goto(NAP_URLS.createVCT, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForLoadState('networkidle').catch(() => {});
 
+    // If redirected to SSO, wait — it may auto-redirect back to NAP Plus
     if (page.url().includes('iam.nhso.go.th')) {
-        throw new Error('Session expired — redirected to login');
+        console.log('[VCT] Redirected to SSO — waiting for auto-redirect back...');
+        try {
+            await page.waitForURL(url => url.toString().includes('dmis.nhso.go.th'), { timeout: 10000 });
+            await page.waitForLoadState('networkidle').catch(() => {});
+            console.log('[VCT] Auto-redirected back to NAP Plus');
+        } catch {
+            throw new Error('Session expired — redirected to login');
+        }
     }
 
     // Fill search: date + PID
@@ -872,11 +880,17 @@ async function fillAndSubmitLabRequest(page, item, dryRun = false) {
     const pid = item.id_card;
     const labDate = item.hiv_labreq_date || item.service_date;
 
-    await page.goto(NAP_URLS.createHivLab, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.goto(NAP_URLS.createHivLab, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForLoadState('networkidle').catch(() => {});
 
     if (page.url().includes('iam.nhso.go.th')) {
-        throw new Error('Session expired — redirected to login (lab request)');
+        console.log('[Lab] Redirected to SSO — waiting for auto-redirect back...');
+        try {
+            await page.waitForURL(url => url.toString().includes('dmis.nhso.go.th'), { timeout: 10000 });
+            await page.waitForLoadState('networkidle').catch(() => {});
+        } catch {
+            throw new Error('Session expired — redirected to login (lab request)');
+        }
     }
 
     // Select ANTIHIV
@@ -964,11 +978,17 @@ async function fillAndSubmitHivResult(page, context, loginCookies, labCode, test
 
     // Use the SAME page — like manual flow (NAP Plus saves via form submit, page refreshes)
     const resultUrl = 'https://dmis.nhso.go.th/NAPPLUS/responseLabRequest/searchResponseLabRequest.do?actionName=search_init';
-    await page.goto(resultUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.goto(resultUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForLoadState('networkidle').catch(() => {});
 
     if (page.url().includes('iam.nhso.go.th')) {
-        throw new Error('Session expired — redirected to login (HIV result)');
+        console.log('[Result] Redirected to SSO — waiting for auto-redirect back...');
+        try {
+            await page.waitForURL(url => url.toString().includes('dmis.nhso.go.th'), { timeout: 10000 });
+            await page.waitForLoadState('networkidle').catch(() => {});
+        } catch {
+            throw new Error('Session expired — redirected to login (HIV result)');
+        }
     }
 
     // Fill search
