@@ -1012,6 +1012,12 @@ async function fillAndSubmitHivResult(page, labCode, testDate, hivResult, dryRun
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await delay(2000);
 
+    // Navigate back to VCT page to maintain session for next record
+    await page.goto('https://dmis.nhso.go.th/NAPPLUS/vct/createVCT.do?actionName=load', {
+        waitUntil: 'domcontentloaded', timeout: 15000,
+    }).catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
+
     return hivResult;
 }
 
