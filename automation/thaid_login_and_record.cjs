@@ -1084,7 +1084,7 @@ async function run() {
                         log(jobId, `  Record ${i + 1}: VCT=${vctCode} — sending VCT callback`);
                         await ably?.publish('job:record:success', {
                             jobId, index: i + 1, total, napCode: vctCode, uic,
-                            message: `✅ VCT สำเร็จ (${i + 1}/${total}) | VCT: ${vctCode}`,
+                            message: `✅ บันทึกสำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | VCT: ${vctCode}`,
                         }, 300);
                         if (cbUrl) {
                             await sendCallback(cbUrl, buildVctCallback(item, jobFy, vctCode));
@@ -1108,8 +1108,8 @@ async function run() {
                             // Callback #2: Lab code
                             if (labCode && !isDryRun && cbUrl) {
                                 await ably?.publish('job:record:success', {
-                                    jobId, index: i + 1, total, labCode, uic,
-                                    message: `✅ Lab สำเร็จ (${i + 1}/${total}) | ANTIHIV: ${labCode}`,
+                                    jobId, index: i + 1, total, labCode, uic, pidMasked,
+                                    message: `✅ Lab สำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | ANTIHIV: ${labCode}`,
                                 }, 300);
                                 await sendCallback(cbUrl, buildLabCallback(item, jobFy, labCode));
                             }
