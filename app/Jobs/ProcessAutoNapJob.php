@@ -61,6 +61,8 @@ class ProcessAutoNapJob implements ShouldQueue
             'items' => $this->items,
             'dryRun' => $this->dryRun,
             'formType' => $this->formType,
+            'callbackUrl' => $this->callbackUrl,
+            'fy' => $this->fy,
         ], JSON_UNESCAPED_UNICODE));
 
         $process = new Process([
@@ -113,19 +115,21 @@ class ProcessAutoNapJob implements ShouldQueue
                 $failed++;
             }
 
-            // Send callback per record — always 'success' (= attempted recording)
-            // error details go in nap_comment for reference
-            NapCallbackService::send(
-                NapCallbackService::buildPayload(
-                    $item,
-                    $napCode,
-                    'success',
-                    $error,
-                    $napLabCode,
-                    $this->formType,
-                ),
-                $this->callbackUrl,
-            );
+            // VCT sends callbacks directly from Playwright script (2-step: VCT then Lab)
+            // RR still sends callback from PHP
+            if ($this->formType !== 'VCT') {
+                NapCallbackService::send(
+                    NapCallbackService::buildPayload(
+                        $item,
+                        $napCode,
+                        'success',
+                        $error,
+                        $napLabCode,
+                        $this->formType,
+                    ),
+                    $this->callbackUrl,
+                );
+            }
         }
 
         Log::info("AutoNAP {$this->formType} job completed: {$this->jobId}", compact('total', 'success', 'failed'));

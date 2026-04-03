@@ -57,6 +57,83 @@ function parseArgs() {
     return { jobId, dataFile };
 }
 
+// ============================================================
+// Callback Helper — send callback to CAREMAT directly from script
+// ============================================================
+
+async function sendCallback(callbackUrl, payload) {
+    if (!callbackUrl) return null;
+    try {
+        const res = await fetch(callbackUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000),
+        });
+        const data = await res.json().catch(() => ({}));
+        console.log(`[Callback] ${res.status} → ${JSON.stringify(data)}`);
+        return data;
+    } catch (e) {
+        console.error(`[Callback] Error: ${e.message}`);
+        return null;
+    }
+}
+
+function buildVctCallback(item, fy, vctCode) {
+    return {
+        form_type: 'VCT',
+        source_id: item.source_id,
+        source: item.source,
+        uic: item.uic || null,
+        id_card: item.id_card,
+        kp: item.kp,
+        fy: fy,
+        nap_vct_code: vctCode,
+        vct_nap_status: 'true',
+        nap_staff: item.cbs || 'AutoNAP',
+        nap_comment: 'VCT บันทึกสำเร็จ AutoNAP',
+        status: 'success',
+        row_id: item.row_id,
+    };
+}
+
+function buildLabCallback(item, fy, labCode) {
+    return {
+        form_type: 'VCT',
+        source_id: item.source_id,
+        source: item.source,
+        uic: item.uic || null,
+        id_card: item.id_card,
+        kp: item.kp,
+        fy: fy,
+        nap_code: labCode,
+        nap_lab_code: labCode,
+        nap_status: 'true',
+        nap_staff: item.cbs || 'AutoNAP',
+        nap_comment: 'Request Lab HIV บันทึกสำเร็จ AutoNAP',
+        status: 'success',
+        row_id: item.row_id,
+    };
+}
+
+function buildErrorCallback(item, fy, error, vctCode) {
+    return {
+        form_type: 'VCT',
+        source_id: item.source_id,
+        source: item.source,
+        uic: item.uic || null,
+        id_card: item.id_card,
+        kp: item.kp,
+        fy: fy,
+        nap_vct_code: vctCode || null,
+        nap_status: 'true',
+        nap_staff: item.cbs || 'AutoNAP',
+        nap_comment: (error || '') + ' AutoNAP',
+        status: 'success',
+        row_id: item.row_id,
+    };
+}
+
 function readDataFile(dataFile) {
     if (!fs.existsSync(dataFile)) {
         console.error(`Data file not found: ${dataFile}`);
@@ -816,6 +893,7 @@ async function run() {
     const jobData = readDataFile(dataFile);
     const { ablyKey, ablyChannel, items, callbackUrl, dryRun, formType } = jobData;
 
+    const { callbackUrl: cbUrl, fy: jobFy } = jobData;
     const ably = createAblyPublisher(ablyKey, ablyChannel);
     const total = items?.length || 0;
     const isDryRun = !!dryRun;
@@ -938,55 +1016,93 @@ async function run() {
                 }
 
                 if (isVCT) {
-                    // === VCT Flow ===
+                    // === VCT Flow (2-step callback) ===
                     let vctCode = item.nap_vct_code || null;
                     let labCode = null;
                     const skipVCT = !!vctCode;
 
-                    // Skip VCT if nap_vct_code already exists
+                    // Step 1: Record VCT
                     if (skipVCT) {
-                        log(jobId, `  Record ${i + 1}: VCT code exists (${vctCode}) — skipping VCT, going to Lab`);
+                        log(jobId, `  Record ${i + 1}: VCT code exists (${vctCode}) — skipping VCT`);
                         await ably?.publish('job:record:filling', {
                             jobId, index: i + 1, total,
                             message: `⏭️ มี VCT ID แล้ว (${vctCode}) — ข้ามไปทำ Request Lab`,
                         }, 300);
                     } else {
-                        const vctResult = await fillAndSubmitVCT(page, item, isDryRun);
-
-                        if (isDryRun && vctResult?.dryRun) {
-                            vctCode = 'DRY_RUN';
-                        } else {
-                            vctCode = vctResult;
+                        try {
+                            const vctResult = await fillAndSubmitVCT(page, item, isDryRun);
+                            if (isDryRun && vctResult?.dryRun) {
+                                vctCode = 'DRY_RUN';
+                            } else {
+                                vctCode = vctResult;
+                            }
+                        } catch (vctErr) {
+                            // Check if error contains VCT code (duplicate case)
+                            const errMsg = vctErr.message || '';
+                            const vctMatch = errMsg.match(/V\d{2}-\d+-\d+/);
+                            if (vctMatch) {
+                                vctCode = vctMatch[0];
+                                log(jobId, `  Record ${i + 1}: VCT ซ้ำ แต่ได้ code ${vctCode}`);
+                            } else {
+                                // Send error callback
+                                if (!isDryRun && cbUrl) {
+                                    await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null));
+                                }
+                                throw vctErr; // re-throw to outer catch
+                            }
                         }
                     }
 
-                    // Request Lab if needed (either after VCT or skip-to-lab)
-                    if (vctCode && !isDryRun && item.request_lab) {
+                    // Callback #1: VCT code
+                    if (vctCode && !isDryRun) {
+                        log(jobId, `  Record ${i + 1}: VCT=${vctCode} — sending VCT callback`);
+                        await ably?.publish('job:record:success', {
+                            jobId, index: i + 1, total, napCode: vctCode, uic,
+                            message: `✅ VCT สำเร็จ (${i + 1}/${total}) | VCT: ${vctCode}`,
+                        }, 300);
+                        if (cbUrl) {
+                            await sendCallback(cbUrl, buildVctCallback(item, jobFy, vctCode));
+                        }
+                    }
+
+                    // Step 2: Request Lab (if needed)
+                    if (vctCode && item.request_lab) {
                         try {
                             await ably?.publish('job:record:filling', {
                                 jobId, index: i + 1, total,
                                 message: `🔬 กำลังบันทึก Request Lab HIV... (${i + 1}/${total})`,
                             }, 500);
-                            labCode = await fillAndSubmitLabRequest(page, item, false);
+                            if (!isDryRun) {
+                                labCode = await fillAndSubmitLabRequest(page, item, false);
+                            } else {
+                                labCode = await fillAndSubmitLabRequest(page, item, true);
+                            }
                             log(jobId, `  Record ${i + 1}: Lab = ${labCode}`);
+
+                            // Callback #2: Lab code
+                            if (labCode && !isDryRun && cbUrl) {
+                                await ably?.publish('job:record:success', {
+                                    jobId, index: i + 1, total, labCode, uic,
+                                    message: `✅ Lab สำเร็จ (${i + 1}/${total}) | ANTIHIV: ${labCode}`,
+                                }, 300);
+                                await sendCallback(cbUrl, buildLabCallback(item, jobFy, labCode));
+                            }
                         } catch (labErr) {
                             log(jobId, `  Record ${i + 1}: Lab error = ${labErr.message}`);
+                            await ably?.publish('job:record:failed', {
+                                jobId, index: i + 1, total, error: labErr.message, uic,
+                                message: `❌ Lab ล้มเหลว (${i + 1}/${total}) | ${labErr.message}`,
+                            }, 300);
                         }
-                    } else if (isDryRun && item.request_lab) {
-                        labCode = await fillAndSubmitLabRequest(page, item, true);
                     }
 
+                    // Record result
                     if (vctCode) {
-                        log(jobId, `  Record ${i + 1}: VCT=${vctCode} Lab=${labCode || 'N/A'}${skipVCT ? ' (VCT skipped)' : ''}`);
                         results.push({
                             id_card: item.id_card, success: true,
                             nap_code: vctCode, nap_lab_code: labCode,
                             error: null,
                         });
-                        await ably?.publish('job:record:success', {
-                            jobId, index: i + 1, total, napCode: vctCode, labCode, uic,
-                            message: `✅ VCT สำเร็จ (${i + 1}/${total}) | ${vctCode}${labCode ? ' | Lab: ' + labCode : ''}`,
-                        }, 300);
                     } else {
                         results.push({
                             id_card: item.id_card, success: false,
