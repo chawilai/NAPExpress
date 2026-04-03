@@ -19,14 +19,6 @@ class AutoNapJobController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        // Log incoming request for debugging
-        Log::info('AutoNAP job request received', [
-            'site' => $request->input('site'),
-            'form_type' => $request->input('form_type', 'RR'),
-            'items_count' => count($request->input('items', [])),
-            'items' => $request->input('items'),
-        ]);
-
         $formType = strtoupper($request->input('form_type', 'RR'));
 
         // Base validation rules (shared by all form types)
@@ -80,6 +72,9 @@ class AutoNapJobController extends Controller
         // Use full items from request (not $validated which strips extra rr_form fields)
         $items = $request->input('items');
 
+        // Store full request as JSON log file for audit/debugging
+        $this->storeRequestLog($jobId, $formType, $validated, $items);
+
         ProcessAutoNapJob::dispatch(
             jobId: $jobId,
             site: $validated['site'],
@@ -107,5 +102,53 @@ class AutoNapJobController extends Controller
                 : 'Job dispatched. Subscribe to Ably channel for progress.',
             'ably_channel' => $validated['ably_channel'],
         ]);
+    }
+
+    /**
+     * Store incoming request as JSON file for audit/debugging.
+     *
+     * Files saved to: storage/app/private/autonap_logs/{date}/{jobId}.json
+     *
+     * @param  array<string, mixed>  $validated
+     * @param  array<int, array<string, mixed>>  $items
+     */
+    private function storeRequestLog(string $jobId, string $formType, array $validated, array $items): void
+    {
+        try {
+            $date = now()->format('Y-m-d');
+            $dir = storage_path("app/private/autonap_logs/{$date}");
+
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+
+            $logData = [
+                'job_id' => $jobId,
+                'form_type' => $formType,
+                'site' => $validated['site'],
+                'fy' => $validated['fy'],
+                'method' => $validated['method'] ?? 'ThaiID',
+                'callback_url' => $validated['callback_url'],
+                'ably_channel' => $validated['ably_channel'] ?? null,
+                'dry_run' => $validated['dry_run'] ?? false,
+                'items_count' => count($items),
+                'items' => $items,
+                'received_at' => now()->toIso8601String(),
+                'ip' => request()->ip(),
+            ];
+
+            file_put_contents(
+                "{$dir}/{$jobId}.json",
+                json_encode($logData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+            );
+
+            Log::info("AutoNAP request logged: {$jobId}", [
+                'form_type' => $formType,
+                'site' => $validated['site'],
+                'items_count' => count($items),
+            ]);
+        } catch (\Exception $e) {
+            Log::warning("Failed to store request log: {$e->getMessage()}");
+        }
     }
 }
