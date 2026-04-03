@@ -18,6 +18,8 @@ class NapCallbackService
         ?string $napCode,
         string $status,
         string $comment = '',
+        ?string $napLabCode = null,
+        string $formType = 'RR',
     ): array {
         $rrForm = $rowData['rr_form'] ?? [];
         $identification = $rowData['identification'] ?? [];
@@ -27,6 +29,7 @@ class NapCallbackService
 
         // Support both nested (ReportingJob) and flat (ProcessAutoNapJob) item structures
         return [
+            'form_type' => $formType,
             'source_id' => $service['source_id'] ?? $rowData['source_id'] ?? null,
             'source' => $context['source'] ?? $rowData['source'] ?? null,
             'uic' => $identification['uic'] ?? $rowData['uic'] ?? null,
@@ -34,9 +37,11 @@ class NapCallbackService
             'kp' => $person['kp'] ?? $rowData['kp'] ?? null,
             'fy' => $context['fy'] ?? $rowData['fy'] ?? null,
             'nap_code' => $napCode,
+            'nap_lab_code' => $napLabCode,
             'nap_comment' => trim(($comment ?: '').' AutoNAP'),
             'nap_staff' => $rowData['cbs'] ?? 'AutoNAP',
             'status' => $status,
+            'row_id' => $rowData['row_id'] ?? null,
         ];
     }
 
