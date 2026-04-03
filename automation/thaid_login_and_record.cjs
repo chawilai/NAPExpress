@@ -957,7 +957,7 @@ async function fillAndSubmitLabRequest(page, item, dryRun = false) {
 // Step 2d: Fill HIV test result
 // ============================================================
 
-async function fillAndSubmitHivResult(page, labCode, testDate, hivResult, dryRun = false) {
+async function fillAndSubmitHivResult(page, context, loginCookies, labCode, testDate, hivResult, dryRun = false) {
     // Map result string to value
     const resultMap = { 'Positive': '1', 'Negative': '2', 'Inconclusive': '3' };
     const resultValue = resultMap[hivResult] || '2'; // default Negative
@@ -1012,11 +1012,19 @@ async function fillAndSubmitHivResult(page, labCode, testDate, hivResult, dryRun
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await delay(2000);
 
-    // Navigate back to VCT page to maintain session for next record
+    // Re-inject login cookies and navigate back to VCT to restore session
+    if (loginCookies && context) {
+        await context.addCookies(loginCookies);
+    }
     await page.goto('https://dmis.nhso.go.th/NAPPLUS/vct/createVCT.do?actionName=load', {
         waitUntil: 'domcontentloaded', timeout: 15000,
     }).catch(() => {});
     await page.waitForLoadState('networkidle').catch(() => {});
+
+    // Verify session is still alive
+    if (page.url().includes('iam.nhso.go.th')) {
+        console.log('[Result] WARNING: Session lost after HIV result — next record may need re-login');
+    }
 
     return hivResult;
 }
@@ -1251,9 +1259,9 @@ async function run() {
                             }, 500);
                             const serviceDate = item.service_date;
                             if (!isDryRun) {
-                                await fillAndSubmitHivResult(page, labCode, serviceDate, item.hiv_result, false);
+                                await fillAndSubmitHivResult(page, workContext, cookies, labCode, serviceDate, item.hiv_result, false);
                             } else {
-                                await fillAndSubmitHivResult(page, labCode, serviceDate, item.hiv_result, true);
+                                await fillAndSubmitHivResult(page, workContext, cookies, labCode, serviceDate, item.hiv_result, true);
                             }
                             log(jobId, `  Record ${i + 1}: Result = ${item.hiv_result}`);
 
