@@ -962,71 +962,68 @@ async function fillAndSubmitHivResult(page, context, loginCookies, labCode, test
     const resultMap = { 'Positive': '1', 'Negative': '2', 'Inconclusive': '3' };
     const resultValue = resultMap[hivResult] || '2'; // default Negative
 
-    // Navigate to response lab request page
-    const resultUrl = 'https://dmis.nhso.go.th/NAPPLUS/responseLabRequest/searchResponseLabRequest.do?actionName=search_init';
-    await page.goto(resultUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-    await page.waitForLoadState('networkidle').catch(() => {});
-
-    if (page.url().includes('iam.nhso.go.th')) {
-        throw new Error('Session expired — redirected to login (HIV result)');
-    }
-
-    // Fill search
-    await page.fill('#lab_request_id', labCode);
-    await page.selectOption('#lab_type', '1:001');
-    await delay(500);
-
-    // Click ค้นหา
-    await page.click('input[name="cmdSearch"]');
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await delay(2000);
-
-    // Check if result row exists
-    const hasRow = await page.evaluate(() => !!document.querySelector('#labreq_id_0'));
-    if (!hasRow) {
-        throw new Error(`ไม่พบข้อมูล Lab ${labCode} ในระบบ`);
-    }
-
-    if (dryRun) {
-        return 'DRY_RUN_RESULT';
-    }
-
-    // Fill result
-    await page.fill('#lab_test_date_0', testDate);
-    await page.selectOption('#lab_status_0', '1'); // ตรวจได้
-    await delay(300);
-    await page.selectOption('#lab_result_0', resultValue);
-    await delay(300);
-
-    // Set change flag (required for save)
-    await page.evaluate(() => {
-        const flag = document.querySelector('#change_result_0');
-        if (flag) flag.value = 'Y';
+    // Open a NEW page for lab result (to not kill session on main page)
+    const resultPage = await context.newPage();
+    resultPage.on('dialog', async dlg => {
+        console.log(`[Result] Dialog: "${dlg.message()}"`);
+        await dlg.accept();
     });
 
-    // Save via doConfirm()
-    console.log(`[Result] Saving: ${labCode} → ${hivResult} (${resultValue})`);
-    await page.evaluate(() => {
-        if (typeof doConfirm === 'function') doConfirm();
-    });
-    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    await delay(2000);
+    try {
+        const resultUrl = 'https://dmis.nhso.go.th/NAPPLUS/responseLabRequest/searchResponseLabRequest.do?actionName=search_init';
+        await resultPage.goto(resultUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await resultPage.waitForLoadState('networkidle').catch(() => {});
 
-    // Re-inject login cookies and navigate back to VCT to restore session
-    if (loginCookies && context) {
-        await context.addCookies(loginCookies);
+        if (resultPage.url().includes('iam.nhso.go.th')) {
+            throw new Error('Session expired — redirected to login (HIV result)');
+        }
+
+        // Fill search
+        await resultPage.fill('#lab_request_id', labCode);
+        await resultPage.selectOption('#lab_type', '1:001');
+        await delay(500);
+
+        // Click ค้นหา
+        await resultPage.click('input[name="cmdSearch"]');
+        await resultPage.waitForLoadState('networkidle').catch(() => {});
+        await delay(2000);
+
+        // Check if result row exists
+        const hasRow = await resultPage.evaluate(() => !!document.querySelector('#labreq_id_0'));
+        if (!hasRow) {
+            throw new Error(`ไม่พบข้อมูล Lab ${labCode} ในระบบ`);
+        }
+
+        if (dryRun) {
+            return 'DRY_RUN_RESULT';
+        }
+
+        // Fill result
+        await resultPage.fill('#lab_test_date_0', testDate);
+        await resultPage.selectOption('#lab_status_0', '1'); // ตรวจได้
+        await delay(300);
+        await resultPage.selectOption('#lab_result_0', resultValue);
+        await delay(300);
+
+        // Set change flag (required for save)
+        await resultPage.evaluate(() => {
+            const flag = document.querySelector('#change_result_0');
+            if (flag) flag.value = 'Y';
+        });
+
+        // Save via doConfirm()
+        console.log(`[Result] Saving: ${labCode} → ${hivResult} (${resultValue})`);
+        await resultPage.evaluate(() => {
+            if (typeof doConfirm === 'function') doConfirm();
+        });
+        await resultPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+        await delay(2000);
+
+        return hivResult;
+    } finally {
+        // Always close the result page — main page session stays intact
+        await resultPage.close().catch(() => {});
     }
-    await page.goto('https://dmis.nhso.go.th/NAPPLUS/vct/createVCT.do?actionName=load', {
-        waitUntil: 'domcontentloaded', timeout: 15000,
-    }).catch(() => {});
-    await page.waitForLoadState('networkidle').catch(() => {});
-
-    // Verify session is still alive
-    if (page.url().includes('iam.nhso.go.th')) {
-        console.log('[Result] WARNING: Session lost after HIV result — next record may need re-login');
-    }
-
-    return hivResult;
 }
 
 // ============================================================
