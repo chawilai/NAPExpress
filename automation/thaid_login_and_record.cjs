@@ -562,9 +562,27 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         if (condomY) condomY.click();
     }, { kp, kpIndex, uic });
 
-    // Fill date fields and condom amounts via Playwright fill
+    // Fill date fields via Playwright fill
     await page.fill('#pre_test_date', serviceDate).catch(() => {});
     await page.fill('#post_test_date', serviceDate).catch(() => {});
+
+    // Condom — unhide fields first (VCT form hides them by default)
+    await page.evaluate(() => {
+        // Unhide condom amount inputs and labels
+        ['49', '52', '53', '54', '56'].forEach(s => {
+            const inp = document.querySelector(`#condom_amount_${s}`);
+            if (inp) inp.style.display = 'inline';
+            // Unhide associated labels
+            const label = document.querySelector(`#label_${s}`);
+            if (label) label.style.display = 'inline';
+        });
+        // Unhide lubricant
+        const lubInput = document.querySelector('#lubricant_amount');
+        if (lubInput) lubInput.style.display = 'inline';
+        const lubLabel = document.querySelector('#label_lubricant');
+        if (lubLabel) lubLabel.style.display = 'inline';
+    });
+    await delay(300);
     await page.fill('#condom_amount_53', '10').catch(() => {});
     await page.fill('#lubricant_amount', '10').catch(() => {});
 
