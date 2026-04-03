@@ -524,7 +524,7 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         await delay(1500);
 
         // Screenshot after re-search
-        await page.screenshot({ path: 'automation/screenshots/vct_after_research.png', fullPage: true });
+        await page.screenshot({ path: 'automation/screenshots/vct_after_research.png', fullPage: true }).catch(() => {});
 
         // Check page content for errors
         const pageContent = await page.evaluate(() => {
@@ -696,8 +696,7 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
     }
 
     // Debug: screenshot before submit
-    await page.screenshot({ path: 'automation/screenshots/vct_before_submit.png', fullPage: true });
-    console.log(`[VCT] Screenshot saved: vct_before_submit.png`);
+    await page.screenshot({ path: 'automation/screenshots/vct_before_submit.png', fullPage: true }).catch(() => {});
 
     // Check what buttons exist
     const buttons = await page.evaluate(() => {
