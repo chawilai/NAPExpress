@@ -22,6 +22,18 @@ const Ably = require('ably');
 const NAP_URLS = {
     createRR: 'https://dmis.nhso.go.th/NAPPLUS/rrttr/createRRTTR.do?actionName=load',
     createRRBase: 'https://dmis.nhso.go.th/NAPPLUS/rrttr/createRRTTR.do',
+    createVCT: 'https://dmis.nhso.go.th/NAPPLUS/vct/createVCT.do?actionName=load',
+    createVCTBase: 'https://dmis.nhso.go.th/NAPPLUS/vct/createVCT.do',
+    createHivLab: 'https://dmis.nhso.go.th/NAPPLUS/hivLabRequest/createHivLabRequest.do?actionName=load',
+    createHivLabBase: 'https://dmis.nhso.go.th/NAPPLUS/hivLabRequest/createHivLabRequest.do',
+};
+
+const VCT_KP_MAP = {
+    'MSM': 0, 'PWID': 1, 'ANC': 2, 'TGW': 3, 'PWUD': 4,
+    'คลอดจากแม่ติดเชื้อเอชไอวี': 5, 'TGM': 6, 'Partner of KP': 7,
+    'บุคลากรทางการแพทย์': 8, 'TGSW': 9, 'Partner of PLHIV': 10,
+    'nPEP': 11, 'MSW': 12, 'Prisoners': 13, 'General Population': 14,
+    'FSW': 15, 'Migrant': 16, 'สามี/คู่ของหญิงตั้งครรภ์': 17,
 };
 
 const THAID_SELECTORS = {
@@ -85,14 +97,14 @@ function createAblyPublisher(ablyKey, channelName) {
 // Step 1: Login via ThaiID
 // ============================================================
 
-async function loginViaThaiId(page, ably, jobId) {
+async function loginViaThaiId(page, ably, jobId, startUrl = NAP_URLS.createRR) {
     log(jobId, 'Navigating to NAP Plus (will redirect to SSO)...');
     await ably?.publish('job:start', {
         jobId,
         message: '🔐 เริ่มระบบ AutoNAP — กำลังเปิดหน้า Login',
     }, 500);
 
-    await page.goto(NAP_URLS.createRR, { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto(startUrl, { waitUntil: 'networkidle', timeout: 30000 });
 
     // Check if redirected to Keycloak
     if (!page.url().includes('iam.nhso.go.th')) {
@@ -448,19 +460,227 @@ async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
 }
 
 // ============================================================
+// Step 2b: Fill and submit VCT form
+// ============================================================
+
+async function fillAndSubmitVCT(page, item, dryRun = false) {
+    const serviceDate = item.service_date;
+    const pid = item.id_card;
+    const kp = item.kp;
+    const uic = item.uic || '';
+    const kpIndex = VCT_KP_MAP[kp];
+
+    if (kpIndex === undefined) {
+        throw new Error(`Unknown KP: ${kp} — ไม่พบใน VCT_KP_MAP`);
+    }
+
+    // Navigate to VCT create page
+    await page.goto(NAP_URLS.createVCT, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    if (page.url().includes('iam.nhso.go.th')) {
+        throw new Error('Session expired — redirected to login');
+    }
+
+    // Fill search: date + PID
+    await page.fill('input[name="vct_date"]', serviceDate);
+    await page.fill('input[name="pid"]', pid);
+    await page.click('input#cmdSearch');
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await delay(1500);
+
+    // Check if we're on the form page
+    const currentUrl = page.url();
+    if (currentUrl.includes('actionName=load')) {
+        const errText = await page.evaluate(() => {
+            const td = document.querySelector('table.alert td.text');
+            return td ? td.textContent.trim() : null;
+        });
+        throw new Error(errText || 'ไม่สามารถเข้าฟอร์ม VCT ได้');
+    }
+
+    // Fill VCT form via DOM
+    await page.evaluate((data) => {
+        const clickCheckbox = (id) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.checked = true;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                el.dispatchEvent(new Event('click', { bubbles: true }));
+            }
+        };
+
+        const clickRadio = (name, value) => {
+            const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+            if (el) el.click();
+        };
+
+        // 1. ช่องทางมารับบริการ: RRTTR (index 7)
+        clickCheckbox('vct_receive_from_status_7');
+
+        // 2. UIC (if from RRTTR)
+        if (data.uic) {
+            const uicInput = document.getElementById('rrtr_uic');
+            if (uicInput) uicInput.value = data.uic;
+        }
+
+        // 3. ประเมินความเสี่ยง: มีพฤติกรรมเสี่ยง
+        clickRadio('risk_flag', 'Y');
+
+        // 4. กลุ่มผู้มารับบริการ (KP)
+        clickCheckbox(`vct_target_group_status_${data.kpIndex}`);
+
+        // 5. ปัจจัยเสี่ยง: มีเพศสัมพันธ์โดยไม่ป้องกัน (always)
+        clickCheckbox('vct_risk_factor_status_0');
+        if (data.kp === 'PWID') {
+            clickCheckbox('vct_risk_factor_status_3');
+        }
+
+        // 6. Pre-test: ทำ
+        clickRadio('pre_test_status', 'Y');
+
+        // 7. Pre-test type: PICT (1)
+        clickRadio('pre_test_type', '1');
+
+        // 8. Pre-test method: รายบุคคล (2)
+        clickRadio('pre_test_method', '2');
+
+        // 9. Post-test: ทำ
+        clickRadio('post_test_status', 'Y');
+
+        // 10. Couple counseling: ไม่มีคู่ (3)
+        clickRadio('post_test_couple_result_status', '3');
+
+        // 11. STI: ไม่ส่งต่อ (2)
+        clickRadio('post_test_sti', '2');
+
+        // 12. เมทาโดน: ไม่ได้รับ (2)
+        clickRadio('post_test_methadone', '2');
+
+        // 13. ถุงยาง: รับ
+        const condomY = document.querySelector('input[name="condom_receive_y"]');
+        if (condomY) condomY.click();
+    }, { kp, kpIndex, uic });
+
+    // Fill date fields and condom amounts via Playwright fill
+    await page.fill('#pre_test_date', serviceDate).catch(() => {});
+    await page.fill('#post_test_date', serviceDate).catch(() => {});
+    await page.fill('#condom_amount_53', '10').catch(() => {});
+    await page.fill('#lubricant_amount', '10').catch(() => {});
+
+    if (dryRun) {
+        await page.screenshot({ path: `automation/screenshots/dryrun_vct_${pid}.png`, fullPage: true });
+        return { dryRun: true, vct_code: 'DRY_RUN' };
+    }
+
+    // Submit: click บันทึก
+    await page.click('input#cmdPreview');
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await delay(2000);
+
+    // Confirm: click ตกลง
+    const confirmBtn = await page.$('input#cmdPreview');
+    if (confirmBtn && await confirmBtn.isVisible()) {
+        await confirmBtn.click();
+        await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+        await delay(2000);
+    }
+
+    // Extract VCT ID
+    const vctCode = await page.evaluate(() => {
+        const tds = [...document.querySelectorAll('td')];
+        const labelTd = tds.find(td => td.textContent.includes('VCT ID'));
+        if (labelTd) {
+            const nextTd = labelTd.nextElementSibling;
+            return nextTd ? nextTd.textContent.trim() : null;
+        }
+        const text = document.body.innerText;
+        const match = text.match(/V\d{2}-\d+-\d+/);
+        return match ? match[0] : null;
+    });
+
+    return vctCode;
+}
+
+// ============================================================
+// Step 2c: Fill and submit HIV Lab Request
+// ============================================================
+
+async function fillAndSubmitLabRequest(page, item, dryRun = false) {
+    const pid = item.id_card;
+    const labDate = item.hiv_labreq_date || item.service_date;
+
+    await page.goto(NAP_URLS.createHivLab, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    if (page.url().includes('iam.nhso.go.th')) {
+        throw new Error('Session expired — redirected to login (lab request)');
+    }
+
+    // Select ANTIHIV
+    await page.selectOption('#hiv_lab_type', '1');
+    await delay(500);
+
+    // Fill PID + date
+    await page.fill('input[name="pid"]', pid);
+    await page.fill('input[name="hiv_labreq_date"]', labDate);
+
+    // Click "เพิ่มข้อมูลการส่งตรวจ HIV"
+    await page.click('input#cmdSearch');
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await delay(1500);
+
+    if (dryRun) {
+        await page.screenshot({ path: `automation/screenshots/dryrun_lab_${pid}.png`, fullPage: true });
+        return 'DRY_RUN_LAB';
+    }
+
+    // Click บันทึก
+    await page.click('input#cmdPreview');
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await delay(2000);
+
+    // Check for "ใช้สิทธิเกิน 2 ครั้ง" confirmation
+    const needsConfirm = await page.isVisible('input[name="confirmPid"]').catch(() => false);
+    if (needsConfirm) {
+        await page.fill('input[name="confirmPid"]', pid);
+        await page.click('input[name="btnSubmit"]');
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await delay(2000);
+    }
+
+    // Extract lab code
+    const labCode = await page.evaluate(() => {
+        const tds = [...document.querySelectorAll('td')];
+        const labelTd = tds.find(td => td.textContent.includes('เลขที่ใบส่งตรวจทางห้องปฏิบัติการ'));
+        if (labelTd) {
+            const nextTd = labelTd.nextElementSibling;
+            return nextTd ? nextTd.textContent.trim() : null;
+        }
+        const text = document.body.innerText;
+        const match = text.match(/ANTIHIV-[\d-]+/);
+        return match ? match[0] : null;
+    });
+
+    return labCode;
+}
+
+// ============================================================
 // Main
 // ============================================================
 
 async function run() {
     const { jobId, dataFile } = parseArgs();
     const jobData = readDataFile(dataFile);
-    const { ablyKey, ablyChannel, items, callbackUrl, dryRun } = jobData;
+    const { ablyKey, ablyChannel, items, callbackUrl, dryRun, formType } = jobData;
 
     const ably = createAblyPublisher(ablyKey, ablyChannel);
     const total = items?.length || 0;
     const isDryRun = !!dryRun;
+    const isVCT = (formType || 'RR').toUpperCase() === 'VCT';
+    const formLabel = isVCT ? 'VCT' : 'RR';
 
-    log(jobId, `Starting ThaiID login flow (${total} records)${isDryRun ? ' [DRY RUN — จะไม่กดบันทึก]' : ''}`);
+    log(jobId, `Starting ThaiID login flow — ${formLabel} (${total} records)${isDryRun ? ' [DRY RUN]' : ''}`);
 
     // ============================================================
     // Phase 1: HEADED browser — login via ThaiID
@@ -489,7 +709,8 @@ async function run() {
 
     try {
         // Login via ThaiID (headed)
-        const loginOk = await loginViaThaiId(loginPage, ably, jobId);
+        const startUrl = isVCT ? NAP_URLS.createVCT : NAP_URLS.createRR;
+        const loginOk = await loginViaThaiId(loginPage, ably, jobId, startUrl);
 
         if (!loginOk) {
             for (const item of items || []) {
@@ -548,13 +769,12 @@ async function run() {
         // Process records
         for (let i = 0; i < (items || []).length; i++) {
             const item = items[i];
-            const rrForm = item.rr_form;
             const uic = item.uic || '';
             const pidMasked = 'xxxx' + (item.id_card || '').slice(-4);
 
             await ably?.publish('job:record:processing', {
                 jobId, index: i + 1, total, pidMasked, uic,
-                message: `📄 กำลังบันทึก (${i + 1}/${total}) | ${uic} | PID: ${pidMasked}`,
+                message: `📄 กำลังบันทึก ${formLabel} (${i + 1}/${total}) | ${uic} | PID: ${pidMasked}`,
             }, 300);
 
             await ably?.publish('job:record:searching', {
@@ -565,76 +785,125 @@ async function run() {
             try {
                 await ably?.publish('job:record:filling', {
                     jobId, index: i + 1, total,
-                    message: `✏️ กำลังกรอกข้อมูลแบบฟอร์ม... (${i + 1}/${total})`,
+                    message: `✏️ กำลังกรอกข้อมูล ${formLabel}... (${i + 1}/${total})`,
                 }, 500);
 
                 if (!isDryRun) {
                     await ably?.publish('job:record:submitting', {
                         jobId, index: i + 1, total,
-                        message: `💾 กำลังบันทึก... (${i + 1}/${total})`,
+                        message: `💾 กำลังบันทึก ${formLabel}... (${i + 1}/${total})`,
                     }, 500);
                 }
 
-                const rrCode = await fillAndSubmitRecord(page, rrForm, isDryRun);
+                if (isVCT) {
+                    // === VCT Flow ===
+                    const vctResult = await fillAndSubmitVCT(page, item, isDryRun);
 
-                if (isDryRun && rrCode?.dryRun) {
-                    const report = rrCode.report;
-                    log(jobId, `  Record ${i + 1}: DRY RUN — form filled`);
+                    let vctCode = null;
+                    let labCode = null;
 
-                    // Build readable report
-                    const lines = [
-                        `📋 รายงาน DRY RUN (${i + 1}/${total}) | ${uic} | PID: ${pidMasked}`,
-                        ``,
-                        `พฤติกรรมเสี่ยง: ${report.risk_behaviors.map(r => r.name).join(', ') || '-'}`,
-                        `กลุ่มเป้าหมาย: ${report.target_groups.map(r => r.name).join(', ') || '-'}`,
-                        `ช่องทางเข้าถึง: ${report.access_type === '1' ? 'ใน DIC' : report.access_type === '2' ? 'นอก DIC' : report.access_type === '3' ? 'Social Media' : '-'}`,
-                        `อาชีพ: ${report.occupation?.text || '-'} (${report.occupation?.value || '-'})`,
-                        `แหล่งเงิน: ${report.pay_by?.text || '-'}`,
-                        `ความรู้: ${report.knowledge.map(r => r.name).join(', ') || '-'}`,
-                        `สถานที่: ${report.place.map(r => r.name).join(', ') || '-'}`,
-                        `PPE: ${report.ppe.map(r => r.name).join(', ') || '-'}`,
-                        `ถุงยาง: 49=${report.condom_49||0} 52=${report.condom_52||0} 53=${report.condom_53||0} 54=${report.condom_54||0} 56=${report.condom_56||0}`,
-                        `ถุงยางหญิง: ${report.female_condom || 0} | สารหล่อลื่น: ${report.lubricant || 0}`,
-                        `หน่วยบริการ: ${report.next_hcode || '-'}`,
-                        `โทร: ${report.ref_tel || '-'}`,
-                        `ส่งต่อ: HIV=${report.hiv_forward||'-'} STI=${report.sti_forward||'-'} TB=${report.tb_forward||'-'} HCV=${report.hcv_forward||'-'} Methadone=${report.methadone_forward||'-'}`,
-                    ];
+                    if (isDryRun && vctResult?.dryRun) {
+                        vctCode = 'DRY_RUN';
+                    } else {
+                        vctCode = vctResult;
+                    }
 
-                    console.log('\n' + lines.join('\n') + '\n');
+                    // Request Lab if needed
+                    if (vctCode && !isDryRun && item.request_lab) {
+                        try {
+                            await ably?.publish('job:record:filling', {
+                                jobId, index: i + 1, total,
+                                message: `🔬 กำลังบันทึก Request Lab HIV... (${i + 1}/${total})`,
+                            }, 500);
+                            labCode = await fillAndSubmitLabRequest(page, item, false);
+                            log(jobId, `  Record ${i + 1}: Lab = ${labCode}`);
+                        } catch (labErr) {
+                            log(jobId, `  Record ${i + 1}: Lab error = ${labErr.message}`);
+                        }
+                    } else if (isDryRun && item.request_lab) {
+                        labCode = await fillAndSubmitLabRequest(page, item, true);
+                    }
 
-                    results.push({
-                        id_card: item.id_card,
-                        uic,
-                        success: true,
-                        nap_code: 'DRY_RUN',
-                        error: null,
-                        report,
-                    });
-
-                    await ably?.publish('job:record:report', {
-                        jobId, index: i + 1, total, uic, pidMasked,
-                        report,
-                        message: lines.join('\n'),
-                    }, 500);
-
-                    // Continue to next record (don't break!)
-                } else if (rrCode) {
-                    log(jobId, `  Record ${i + 1}: ${rrCode}`);
-                    results.push({ id_card: item.id_card, success: true, nap_code: rrCode, error: null });
-                    await ably?.publish('job:record:success', {
-                        jobId, index: i + 1, total, napCode: rrCode, uic,
-                        message: `✅ สำเร็จ (${i + 1}/${total}) | ${rrCode}`,
-                    }, 300);
+                    if (vctCode) {
+                        log(jobId, `  Record ${i + 1}: VCT=${vctCode} Lab=${labCode || 'N/A'}`);
+                        results.push({
+                            id_card: item.id_card, success: true,
+                            nap_code: vctCode, nap_lab_code: labCode,
+                            error: null,
+                        });
+                        await ably?.publish('job:record:success', {
+                            jobId, index: i + 1, total, napCode: vctCode, labCode, uic,
+                            message: `✅ VCT สำเร็จ (${i + 1}/${total}) | ${vctCode}${labCode ? ' | Lab: ' + labCode : ''}`,
+                        }, 300);
+                    } else {
+                        results.push({
+                            id_card: item.id_card, success: false,
+                            nap_code: null, nap_lab_code: null,
+                            error: 'ไม่พบรหัส VCT',
+                        });
+                        await ably?.publish('job:record:failed', {
+                            jobId, index: i + 1, total, error: 'ไม่พบรหัส VCT', uic,
+                            message: `❌ ล้มเหลว (${i + 1}/${total}) | ไม่พบรหัส VCT`,
+                        }, 300);
+                    }
                 } else {
-                    results.push({ id_card: item.id_card, success: false, nap_code: null, error: 'ไม่พบรหัส RR' });
-                    await ably?.publish('job:record:failed', {
-                        jobId, index: i + 1, total, error: 'ไม่พบรหัส RR', uic,
-                        message: `❌ ล้มเหลว (${i + 1}/${total}) | ไม่พบรหัส RR`,
-                    }, 300);
+                    // === RR Flow (existing) ===
+                    const rrForm = item.rr_form;
+
+                    const rrCode = await fillAndSubmitRecord(page, rrForm, isDryRun);
+
+                    if (isDryRun && rrCode?.dryRun) {
+                        const report = rrCode.report;
+                        log(jobId, `  Record ${i + 1}: DRY RUN — form filled`);
+
+                        const lines = [
+                            `📋 รายงาน DRY RUN (${i + 1}/${total}) | ${uic} | PID: ${pidMasked}`,
+                            ``,
+                            `พฤติกรรมเสี่ยง: ${report.risk_behaviors.map(r => r.name).join(', ') || '-'}`,
+                            `กลุ่มเป้าหมาย: ${report.target_groups.map(r => r.name).join(', ') || '-'}`,
+                            `ช่องทางเข้าถึง: ${report.access_type === '1' ? 'ใน DIC' : report.access_type === '2' ? 'นอก DIC' : report.access_type === '3' ? 'Social Media' : '-'}`,
+                            `อาชีพ: ${report.occupation?.text || '-'} (${report.occupation?.value || '-'})`,
+                            `แหล่งเงิน: ${report.pay_by?.text || '-'}`,
+                            `ความรู้: ${report.knowledge.map(r => r.name).join(', ') || '-'}`,
+                            `สถานที่: ${report.place.map(r => r.name).join(', ') || '-'}`,
+                            `PPE: ${report.ppe.map(r => r.name).join(', ') || '-'}`,
+                            `ถุงยาง: 49=${report.condom_49||0} 52=${report.condom_52||0} 53=${report.condom_53||0} 54=${report.condom_54||0} 56=${report.condom_56||0}`,
+                            `ถุงยางหญิง: ${report.female_condom || 0} | สารหล่อลื่น: ${report.lubricant || 0}`,
+                            `หน่วยบริการ: ${report.next_hcode || '-'}`,
+                            `โทร: ${report.ref_tel || '-'}`,
+                            `ส่งต่อ: HIV=${report.hiv_forward||'-'} STI=${report.sti_forward||'-'} TB=${report.tb_forward||'-'} HCV=${report.hcv_forward||'-'} Methadone=${report.methadone_forward||'-'}`,
+                        ];
+
+                        console.log('\n' + lines.join('\n') + '\n');
+
+                        results.push({
+                            id_card: item.id_card, uic, success: true,
+                            nap_code: 'DRY_RUN', nap_lab_code: null,
+                            error: null, report,
+                        });
+
+                        await ably?.publish('job:record:report', {
+                            jobId, index: i + 1, total, uic, pidMasked,
+                            report, message: lines.join('\n'),
+                        }, 500);
+                    } else if (rrCode) {
+                        log(jobId, `  Record ${i + 1}: ${rrCode}`);
+                        results.push({ id_card: item.id_card, success: true, nap_code: rrCode, nap_lab_code: null, error: null });
+                        await ably?.publish('job:record:success', {
+                            jobId, index: i + 1, total, napCode: rrCode, uic,
+                            message: `✅ สำเร็จ (${i + 1}/${total}) | ${rrCode}`,
+                        }, 300);
+                    } else {
+                        results.push({ id_card: item.id_card, success: false, nap_code: null, nap_lab_code: null, error: 'ไม่พบรหัส RR' });
+                        await ably?.publish('job:record:failed', {
+                            jobId, index: i + 1, total, error: 'ไม่พบรหัส RR', uic,
+                            message: `❌ ล้มเหลว (${i + 1}/${total}) | ไม่พบรหัส RR`,
+                        }, 300);
+                    }
                 }
             } catch (err) {
                 log(jobId, `  Record ${i + 1} error: ${err.message}`);
-                results.push({ id_card: item.id_card, success: false, nap_code: null, error: err.message });
+                results.push({ id_card: item.id_card, success: false, nap_code: null, nap_lab_code: null, error: err.message });
                 await ably?.publish('job:record:failed', {
                     jobId, index: i + 1, total, error: err.message, uic,
                     message: `❌ ล้มเหลว (${i + 1}/${total}) | ${err.message}`,
