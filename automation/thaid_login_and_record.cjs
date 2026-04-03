@@ -700,41 +700,46 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
     });
     console.log(`[VCT] Buttons on page: ${JSON.stringify(buttons)}`);
 
-    // Submit: click บันทึก (triggers doPreview → confirmation dialog → form submit)
-    console.log(`[VCT] Clicking บันทึก... URL: ${page.url()}`);
+    // Submit: click บันทึก (triggers confirmation dialog → form submit → confirm page)
     await page.click('input#cmdPreview');
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await delay(2000);
-    console.log(`[VCT] After บันทึก URL: ${page.url()}`);
 
-    // Check page content for confirm page or VCT ID
-    const pageText = await page.evaluate(() => document.body.innerText.substring(0, 500));
-    console.log(`[VCT] Page content: ${pageText.substring(0, 200)}`);
-
-    // Confirm: click ตกลง if on confirm page
-    const confirmBtn = await page.$('input[value="ตกลง"]');
-    if (confirmBtn && await confirmBtn.isVisible()) {
-        console.log('[VCT] Found ตกลง button — clicking...');
-        await confirmBtn.click();
-        await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-        await delay(2000);
-        console.log(`[VCT] After ตกลง URL: ${page.url()}`);
-    } else {
-        console.log('[VCT] No ตกลง button found — checking for VCT ID directly');
+    // After บันทึก: may land on confirm page with ตกลง button
+    // Keep clicking ตกลง until we reach the VCT ID result page
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const confirmBtn = await page.$('input[value="ตกลง"]');
+        if (confirmBtn && await confirmBtn.isVisible()) {
+            await confirmBtn.click();
+            await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+            await delay(2000);
+        } else {
+            break;
+        }
     }
 
-    // Extract VCT ID
-    const vctCode = await page.evaluate(() => {
-        const tds = [...document.querySelectorAll('td')];
-        const labelTd = tds.find(td => td.textContent.includes('VCT ID'));
-        if (labelTd) {
-            const nextTd = labelTd.nextElementSibling;
-            return nextTd ? nextTd.textContent.trim() : null;
-        }
-        const text = document.body.innerText;
-        const match = text.match(/V\d{2}-\d+-\d+/);
-        return match ? match[0] : null;
-    });
+    // Extract VCT ID — retry a few times (page may still be loading)
+    let vctCode = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        vctCode = await page.evaluate(() => {
+            // Look for VCT ID pattern in page text
+            const text = document.body.innerText;
+            const match = text.match(/V\d{2}-\d+-\d+/);
+            if (match) return match[0];
+
+            // Fallback: look in table cells
+            const tds = [...document.querySelectorAll('td')];
+            const labelTd = tds.find(td => td.textContent.includes('VCT ID'));
+            if (labelTd) {
+                const nextTd = labelTd.nextElementSibling;
+                return nextTd ? nextTd.textContent.trim() : null;
+            }
+            return null;
+        });
+
+        if (vctCode) break;
+        await delay(2000);
+    }
 
     return vctCode;
 }
