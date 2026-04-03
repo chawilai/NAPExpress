@@ -508,6 +508,30 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         await delay(1500);
     }
 
+    // After confirm, NAP Plus may return to search page — check and re-fill if needed
+    if (page.url().includes('actionName=load')) {
+        console.log('[VCT] Back on search page after confirm — re-filling date + PID');
+        await page.fill('input[name="vct_date"]', serviceDate);
+        await page.fill('input[name="pid"]', pid);
+        await page.click('input#cmdSearch');
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await delay(1500);
+
+        // Check for another confirm
+        const confirmBtn2 = await page.$('input[value="ตกลง"]');
+        if (confirmBtn2 && await confirmBtn2.isVisible()) {
+            console.log('[VCT] Second confirm page — clicking ตกลง');
+            await confirmBtn2.click();
+            await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+            await delay(1500);
+        }
+    }
+
+    // Verify we're on the VCT form (not search page)
+    if (page.url().includes('actionName=load')) {
+        throw new Error('ไม่สามารถเข้าฟอร์ม VCT ได้ — ยังอยู่หน้าค้นหา');
+    }
+
     // Fill VCT form via DOM
     await page.evaluate((data) => {
         const clickCheckbox = (id) => {
