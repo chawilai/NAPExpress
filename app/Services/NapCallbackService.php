@@ -70,8 +70,11 @@ class NapCallbackService
             if ($response->successful()) {
                 $data = $response->json();
                 Log::info('NAP callback sent', [
-                    'source_id' => $payload['source_id'],
-                    'nap_code' => $payload['nap_code'],
+                    'source_id' => $payload['source_id'] ?? null,
+                    'form_type' => $payload['form_type'] ?? 'RR',
+                    'nap_code' => $payload['nap_code'] ?? $payload['nap_vct_code'] ?? null,
+                    'nap_lab_code' => $payload['nap_lab_code'] ?? null,
+                    'nap_status' => $payload['nap_status'] ?? null,
                     'response' => $data,
                 ]);
 
