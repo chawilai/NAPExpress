@@ -30,6 +30,7 @@ class ProcessAutoNapJob implements ShouldQueue
         public array $items,
         public string $method = 'ThaiID',
         public bool $dryRun = false,
+        public string $formType = 'RR',
     ) {}
 
     public function handle(): void
@@ -59,6 +60,7 @@ class ProcessAutoNapJob implements ShouldQueue
             'ablyChannel' => $this->ablyChannel,
             'items' => $this->items,
             'dryRun' => $this->dryRun,
+            'formType' => $this->formType,
         ], JSON_UNESCAPED_UNICODE));
 
         $process = new Process([
@@ -69,9 +71,10 @@ class ProcessAutoNapJob implements ShouldQueue
         ]);
         $process->setTimeout($this->timeout);
 
-        Log::info("ThaiID: Starting login+record for job {$this->jobId}", [
+        Log::info("ThaiID: Starting {$this->formType} for job {$this->jobId}", [
             'total' => $total,
             'dryRun' => $this->dryRun,
+            'formType' => $this->formType,
         ]);
 
         $process->run(function ($type, $buffer) {
@@ -101,6 +104,7 @@ class ProcessAutoNapJob implements ShouldQueue
 
             $isSuccess = $result['success'] ?? false;
             $napCode = $result['nap_code'] ?? null;
+            $napLabCode = $result['nap_lab_code'] ?? null;
             $error = $result['error'] ?? '';
 
             if ($isSuccess) {
@@ -117,12 +121,14 @@ class ProcessAutoNapJob implements ShouldQueue
                     $napCode,
                     'success',
                     $error,
+                    $napLabCode,
+                    $this->formType,
                 ),
                 $this->callbackUrl,
             );
         }
 
-        Log::info("AutoNAP job completed: {$this->jobId}", compact('total', 'success', 'failed'));
+        Log::info("AutoNAP {$this->formType} job completed: {$this->jobId}", compact('total', 'success', 'failed'));
 
         $this->cleanup($dataFile, $resultsFile);
     }
