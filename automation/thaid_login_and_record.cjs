@@ -558,7 +558,7 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
     if (page.url().includes('iam.nhso.go.th')) {
         console.log('[VCT] Redirected to SSO — waiting for auto-redirect back...');
         try {
-            await page.waitForURL(url => url.toString().includes('dmis.nhso.go.th'), { timeout: 10000 });
+            await page.waitForURL(url => url.toString().includes('dmis.nhso.go.th'), { timeout: 30000 });
             await page.waitForLoadState('networkidle').catch(() => {});
             console.log('[VCT] Auto-redirected back to NAP Plus');
         } catch {
@@ -886,7 +886,7 @@ async function fillAndSubmitLabRequest(page, item, dryRun = false) {
     if (page.url().includes('iam.nhso.go.th')) {
         console.log('[Lab] Redirected to SSO — waiting for auto-redirect back...');
         try {
-            await page.waitForURL(url => url.toString().includes('dmis.nhso.go.th'), { timeout: 10000 });
+            await page.waitForURL(url => url.toString().includes('dmis.nhso.go.th'), { timeout: 30000 });
             await page.waitForLoadState('networkidle').catch(() => {});
         } catch {
             throw new Error('Session expired — redirected to login (lab request)');
@@ -984,7 +984,7 @@ async function fillAndSubmitHivResult(page, context, loginCookies, labCode, test
     if (page.url().includes('iam.nhso.go.th')) {
         console.log('[Result] Redirected to SSO — waiting for auto-redirect back...');
         try {
-            await page.waitForURL(url => url.toString().includes('dmis.nhso.go.th'), { timeout: 10000 });
+            await page.waitForURL(url => url.toString().includes('dmis.nhso.go.th'), { timeout: 30000 });
             await page.waitForLoadState('networkidle').catch(() => {});
         } catch {
             throw new Error('Session expired — redirected to login (HIV result)');
