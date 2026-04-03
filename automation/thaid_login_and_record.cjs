@@ -176,7 +176,7 @@ async function loginViaThaiId(page, ably, jobId, startUrl = NAP_URLS.createRR) {
 
     await ably?.publish('job:thaid:waiting', {
         jobId,
-        message: '⏳ รอการสแกน ThaiD... (หมดเวลาใน 2 นาที)',
+        message: '⏳ รอการสแกน ThaiD... (หมดเวลาใน 1 นาที)',
     });
 
     // Wait for redirect back to NAP Plus (login success)
@@ -184,7 +184,7 @@ async function loginViaThaiId(page, ably, jobId, startUrl = NAP_URLS.createRR) {
         await page.waitForURL(url => {
             const u = url.toString();
             return u.includes('dmis.nhso.go.th') || u.includes('NAPPLUS');
-        }, { timeout: 120000 }); // 2 minutes timeout
+        }, { timeout: 60000 }); // 1 minute timeout
 
         log(jobId, `Login success! URL: ${page.url()}`);
         await ably?.publish('job:login:success', {
@@ -197,7 +197,7 @@ async function loginViaThaiId(page, ably, jobId, startUrl = NAP_URLS.createRR) {
         log(jobId, 'ThaiID scan timeout');
         await ably?.publish('job:login:failed', {
             jobId,
-            message: '❌ หมดเวลา — ไม่ได้สแกน ThaiD ภายใน 2 นาที',
+            message: '❌ หมดเวลา — ไม่ได้สแกน ThaiD ภายใน 1 นาที',
         });
         return false;
     }
