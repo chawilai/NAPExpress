@@ -1093,51 +1093,6 @@ async function run() {
             return;
         }
 
-        // Extract NAP display name from page header
-        try {
-            await loginPage.waitForLoadState('networkidle').catch(() => {});
-            await delay(1000);
-
-            // Navigate to main NAP page to get header with display name
-            await loginPage.goto('https://dmis.nhso.go.th/NAPPLUS/', {
-                waitUntil: 'domcontentloaded', timeout: 15000,
-            }).catch(() => {});
-            await loginPage.waitForLoadState('networkidle').catch(() => {});
-            await delay(500);
-
-            napDisplayName = await loginPage.evaluate(() => {
-                // Try common NAP Plus header patterns
-                const selectors = [
-                    '#header_user_name', '.user-name', '.username',
-                    '#userName', '#user_name', '.header-user',
-                    '#header_hospital_name', '.hospital-name',
-                ];
-                for (const sel of selectors) {
-                    const el = document.querySelector(sel);
-                    if (el?.textContent?.trim()) return el.textContent.trim();
-                }
-
-                // Fallback: scan header area for Thai text
-                const headerEls = document.querySelectorAll('header *, .header *, #header *, .navbar *, .top-bar *, td[class*="header"], div[class*="header"]');
-                for (const el of headerEls) {
-                    const text = el.textContent?.trim() || '';
-                    if (text.length > 3 && text.length < 80 && /[ก-๙]/.test(text) && !text.includes('NAP') && !text.includes('ระบบ')) {
-                        return text;
-                    }
-                }
-
-                return '';
-            }) || '';
-
-            if (napDisplayName) {
-                log(jobId, `NAP display name: ${napDisplayName}`);
-            } else {
-                log(jobId, 'Could not extract NAP display name from header');
-            }
-        } catch (e) {
-            log(jobId, `NAP display name extraction failed: ${e.message}`);
-        }
-
         // Extract cookies from headed browser
         const cookies = await loginContext.cookies();
         log(jobId, `Extracted ${cookies.length} cookies from login session`);
@@ -1182,6 +1137,43 @@ async function run() {
         });
 
         log(jobId, 'Headless browser ready with session cookies');
+
+        // Extract NAP display name from first page load (headless)
+        try {
+            const formUrl = isVCT ? NAP_URLS.createVCT : NAP_URLS.createRR;
+            await page.goto(formUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            await page.waitForLoadState('networkidle').catch(() => {});
+
+            napDisplayName = await page.evaluate(() => {
+                const selectors = [
+                    '#header_user_name', '.user-name', '.username',
+                    '#userName', '#user_name', '.header-user',
+                ];
+                for (const sel of selectors) {
+                    const el = document.querySelector(sel);
+                    if (el?.textContent?.trim()) return el.textContent.trim();
+                }
+                // Fallback: scan header/top area
+                const headerEls = document.querySelectorAll(
+                    'header *, .header *, #header *, .navbar *, .top-bar *, td[class*="header"], div[class*="header"]'
+                );
+                for (const el of headerEls) {
+                    const text = el.textContent?.trim() || '';
+                    if (text.length > 3 && text.length < 80 && /[ก-๙]/.test(text) && !text.includes('NAP') && !text.includes('ระบบ')) {
+                        return text;
+                    }
+                }
+                return '';
+            }) || '';
+
+            if (napDisplayName) {
+                log(jobId, `NAP display name: ${napDisplayName}`);
+            } else {
+                log(jobId, 'Could not extract NAP display name from header');
+            }
+        } catch (e) {
+            log(jobId, `NAP display name extraction skipped: ${e.message}`);
+        }
 
         // Process records
         for (let i = 0; i < (items || []).length; i++) {
