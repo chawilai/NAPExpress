@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
 Route::post('jobs', [AutoNapJobController::class, 'store']);
+Route::get('jobs/status', [AutoNapJobController::class, 'status']);
 
 Route::post('test-callback', function (Request $request) {
     Log::info('Test callback received', $request->all());

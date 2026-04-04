@@ -73,7 +73,8 @@ class AutoNapJobController extends Controller
         $lockKey = "autonap:{$site}:{$formType}";
 
         if (Cache::has($lockKey)) {
-            $runningJobId = Cache::get($lockKey);
+            $running = Cache::get($lockKey);
+            $runningJobId = is_array($running) ? $running['job_id'] : $running;
 
             return response()->json([
                 'status' => 'error',
@@ -83,9 +84,16 @@ class AutoNapJobController extends Controller
         }
 
         $jobId = 'autonap-'.bin2hex(random_bytes(8));
+        $ablyChannel = $validated['ably_channel'] ?? null;
 
         // Lock for 1 hour (max job duration) — released when job completes
-        Cache::put($lockKey, $jobId, 3600);
+        Cache::put($lockKey, [
+            'job_id' => $jobId,
+            'form_type' => $formType,
+            'ably_channel' => $ablyChannel,
+            'total' => count($request->input('items')),
+            'started_at' => now('Asia/Bangkok')->toIso8601String(),
+        ], 3600);
 
         // Use full items from request (not $validated which strips extra rr_form fields)
         $items = $request->input('items');
@@ -119,6 +127,42 @@ class AutoNapJobController extends Controller
                 ? 'Job dispatched. QR code will be sent via Ably — scan with ThaiD app.'
                 : 'Job dispatched. Subscribe to Ably channel for progress.',
             'ably_channel' => $validated['ably_channel'] ?? null,
+        ]);
+    }
+
+    /**
+     * Check if a job is currently running for a given site + form_type.
+     *
+     * GET /api/jobs/status?site=rsat_pte&form_type=VCT
+     */
+    public function status(Request $request): JsonResponse
+    {
+        $request->validate([
+            'site' => ['required', 'string'],
+            'form_type' => ['nullable', 'string'],
+        ]);
+
+        $site = $request->input('site');
+        $formType = strtoupper($request->input('form_type', 'VCT'));
+        $lockKey = "autonap:{$site}:{$formType}";
+
+        $running = Cache::get($lockKey);
+
+        if (! $running) {
+            return response()->json(['running' => false]);
+        }
+
+        // Support old format (just jobId string) and new format (array)
+        if (is_string($running)) {
+            return response()->json([
+                'running' => true,
+                'job_id' => $running,
+            ]);
+        }
+
+        return response()->json([
+            'running' => true,
+            ...$running,
         ]);
     }
 
