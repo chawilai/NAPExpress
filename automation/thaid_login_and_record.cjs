@@ -1078,6 +1078,7 @@ async function run() {
 
     const results = [];
     let napDisplayName = '';
+    let napSiteName = '';
 
     try {
         // Login via ThaiID (headed)
@@ -1144,30 +1145,17 @@ async function run() {
             await page.goto(formUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
             await page.waitForLoadState('networkidle').catch(() => {});
 
-            napDisplayName = await page.evaluate(() => {
-                const selectors = [
-                    '#header_user_name', '.user-name', '.username',
-                    '#userName', '#user_name', '.header-user',
-                ];
-                for (const sel of selectors) {
-                    const el = document.querySelector(sel);
-                    if (el?.textContent?.trim()) return el.textContent.trim();
-                }
-                // Fallback: scan header/top area
-                const headerEls = document.querySelectorAll(
-                    'header *, .header *, #header *, .navbar *, .top-bar *, td[class*="header"], div[class*="header"]'
-                );
-                for (const el of headerEls) {
-                    const text = el.textContent?.trim() || '';
-                    if (text.length > 3 && text.length < 80 && /[ก-๙]/.test(text) && !text.includes('NAP') && !text.includes('ระบบ')) {
-                        return text;
-                    }
-                }
-                return '';
-            }) || '';
+            const napHeader = await page.evaluate(() => {
+                const nameTds = document.querySelectorAll('table.userBar td.name');
+                const userName = nameTds[0]?.textContent?.replace(/ชื่อผู้ใช้\s*:\s*/, '').trim() || '';
+                const siteName = nameTds[1]?.textContent?.replace(/หน่วยงาน\s*:\s*/, '').trim() || '';
+                return { userName, siteName };
+            }) || {};
+            napDisplayName = napHeader.userName || '';
+            napSiteName = napHeader.siteName || '';
 
             if (napDisplayName) {
-                log(jobId, `NAP display name: ${napDisplayName}`);
+                log(jobId, `NAP user: ${napDisplayName} | site: ${napSiteName}`);
             } else {
                 log(jobId, 'Could not extract NAP display name from header');
             }
@@ -1329,13 +1317,13 @@ async function run() {
                     // Record result
                     if (vctCode) {
                         results.push({
-                            id_card: item.id_card, success: true,
+                            id_card: item.id_card, uic, success: true,
                             nap_code: vctCode, nap_lab_code: labCode,
                             error: null,
                         });
                     } else {
                         results.push({
-                            id_card: item.id_card, success: false,
+                            id_card: item.id_card, uic, success: false,
                             nap_code: null, nap_lab_code: null,
                             error: 'ไม่พบรหัส VCT',
                         });
@@ -1386,13 +1374,13 @@ async function run() {
                         }, 500);
                     } else if (rrCode) {
                         log(jobId, `  Record ${i + 1}: ${rrCode}`);
-                        results.push({ id_card: item.id_card, success: true, nap_code: rrCode, nap_lab_code: null, error: null });
+                        results.push({ id_card: item.id_card, uic, success: true, nap_code: rrCode, nap_lab_code: null, error: null });
                         await ably?.publish('job:record:success', {
                             jobId, index: i + 1, total, napCode: rrCode, uic,
                             message: `✅ สำเร็จ (${i + 1}/${total}) | ${rrCode}`,
                         }, 300);
                     } else {
-                        results.push({ id_card: item.id_card, success: false, nap_code: null, nap_lab_code: null, error: 'ไม่พบรหัส RR' });
+                        results.push({ id_card: item.id_card, uic, success: false, nap_code: null, nap_lab_code: null, error: 'ไม่พบรหัส RR' });
                         await ably?.publish('job:record:failed', {
                             jobId, index: i + 1, total, error: 'ไม่พบรหัส RR', uic,
                             message: `❌ ล้มเหลว (${i + 1}/${total}) | ไม่พบรหัส RR`,
@@ -1401,7 +1389,7 @@ async function run() {
                 }
             } catch (err) {
                 log(jobId, `  Record ${i + 1} error: ${err.message}`);
-                results.push({ id_card: item.id_card, success: false, nap_code: null, nap_lab_code: null, error: err.message });
+                results.push({ id_card: item.id_card, uic, success: false, nap_code: null, nap_lab_code: null, error: err.message });
                 await ably?.publish('job:record:failed', {
                     jobId, index: i + 1, total, error: err.message, uic,
                     message: `❌ ล้มเหลว (${i + 1}/${total}) | ${err.message}`,
@@ -1430,7 +1418,7 @@ async function run() {
         try { await loginBrowser.close(); } catch {}
     }
 
-    await writeResults(dataFile, results, { napDisplayName });
+    await writeResults(dataFile, results, { napDisplayName, napSiteName });
 }
 
 async function writeResults(dataFile, results, meta = {}) {

@@ -98,6 +98,10 @@
                                     <td style="padding:10px 16px;font-size:13px;color:#111827;border-bottom:1px solid #e5e7eb;">{{ $report['napDisplayName'] ?: '-' }}</td>
                                 </tr>
                                 <tr style="background-color:#f9fafb;">
+                                    <td style="padding:10px 16px;font-size:13px;color:#6b7280;width:160px;border-bottom:1px solid #e5e7eb;">NAP Site</td>
+                                    <td style="padding:10px 16px;font-size:13px;color:#111827;border-bottom:1px solid #e5e7eb;">{{ $report['napSiteName'] ?: '-' }}</td>
+                                </tr>
+                                <tr>
                                     <td style="padding:10px 16px;font-size:13px;color:#6b7280;width:160px;border-bottom:1px solid #e5e7eb;">Started</td>
                                     <td style="padding:10px 16px;font-size:13px;color:#111827;border-bottom:1px solid #e5e7eb;">{{ $report['startedAt'] }}</td>
                                 </tr>

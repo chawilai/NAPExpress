@@ -104,6 +104,7 @@ class ProcessAutoNapJob implements ShouldQueue
         $resultsData = json_decode(file_get_contents($resultsFile), true);
         $results = $resultsData['results'] ?? [];
         $napDisplayName = $resultsData['napDisplayName'] ?? '';
+        $napSiteName = $resultsData['napSiteName'] ?? '';
 
         // Send callbacks to CAREMAT for each result
         $success = 0;
@@ -151,6 +152,7 @@ class ProcessAutoNapJob implements ShouldQueue
         // Send email report
         $this->sendReport([
             'napDisplayName' => $napDisplayName,
+            'napSiteName' => $napSiteName,
             'startedAt' => $startedAt,
             'finishedAt' => $finishedAt,
             'total' => $total,
