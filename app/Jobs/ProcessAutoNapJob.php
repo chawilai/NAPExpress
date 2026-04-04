@@ -15,6 +15,8 @@ class ProcessAutoNapJob implements ShouldQueue
 {
     use Queueable;
 
+    public int $tries = 1;
+
     public int $timeout = 3600;
 
     /**
@@ -184,6 +186,25 @@ class ProcessAutoNapJob implements ShouldQueue
         $ablyKey = $this->getAblyKey();
 
         return ! empty($ablyKey) ? new AblyProgressService($ablyKey, $this->ablyChannel) : null;
+    }
+
+    /**
+     * Handle job failure — release cache lock and notify via Ably.
+     */
+    public function failed(?\Throwable $exception): void
+    {
+        Log::error("AutoNAP {$this->formType} job failed: {$this->jobId}", [
+            'error' => $exception?->getMessage(),
+        ]);
+
+        Cache::forget("autonap:{$this->site}:{$this->formType}");
+
+        $progress = $this->createProgress();
+        $progress?->publish('job:failed', [
+            'jobId' => $this->jobId,
+            'error' => $exception?->getMessage() ?? 'Unknown error',
+            'message' => "❌ Job ล้มเหลว: {$this->jobId}",
+        ]);
     }
 
     protected function cleanup(string ...$files): void
