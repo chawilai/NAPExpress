@@ -34,7 +34,7 @@ class AutoNapJobReport extends Mailable
         $site = $this->report['site'];
 
         return new Envelope(
-            subject: "[AutoNAP] {$type} Report — {$site} ({$statusLabel} {$this->report['success']}/{$this->report['total']})",
+            subject: "{$type} Report — {$site} ({$statusLabel} {$this->report['success']}/{$this->report['total']})",
         );
     }
 
