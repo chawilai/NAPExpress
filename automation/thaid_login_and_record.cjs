@@ -1077,6 +1077,7 @@ async function run() {
     });
 
     const results = [];
+    let napDisplayName = '';
 
     try {
         // Login via ThaiID (headed)
@@ -1090,6 +1091,51 @@ async function run() {
             await loginBrowser.close();
             await writeResults(dataFile, results);
             return;
+        }
+
+        // Extract NAP display name from page header
+        try {
+            await loginPage.waitForLoadState('networkidle').catch(() => {});
+            await delay(1000);
+
+            // Navigate to main NAP page to get header with display name
+            await loginPage.goto('https://dmis.nhso.go.th/NAPPLUS/', {
+                waitUntil: 'domcontentloaded', timeout: 15000,
+            }).catch(() => {});
+            await loginPage.waitForLoadState('networkidle').catch(() => {});
+            await delay(500);
+
+            napDisplayName = await loginPage.evaluate(() => {
+                // Try common NAP Plus header patterns
+                const selectors = [
+                    '#header_user_name', '.user-name', '.username',
+                    '#userName', '#user_name', '.header-user',
+                    '#header_hospital_name', '.hospital-name',
+                ];
+                for (const sel of selectors) {
+                    const el = document.querySelector(sel);
+                    if (el?.textContent?.trim()) return el.textContent.trim();
+                }
+
+                // Fallback: scan header area for Thai text
+                const headerEls = document.querySelectorAll('header *, .header *, #header *, .navbar *, .top-bar *, td[class*="header"], div[class*="header"]');
+                for (const el of headerEls) {
+                    const text = el.textContent?.trim() || '';
+                    if (text.length > 3 && text.length < 80 && /[ก-๙]/.test(text) && !text.includes('NAP') && !text.includes('ระบบ')) {
+                        return text;
+                    }
+                }
+
+                return '';
+            }) || '';
+
+            if (napDisplayName) {
+                log(jobId, `NAP display name: ${napDisplayName}`);
+            } else {
+                log(jobId, 'Could not extract NAP display name from header');
+            }
+        } catch (e) {
+            log(jobId, `NAP display name extraction failed: ${e.message}`);
         }
 
         // Extract cookies from headed browser
@@ -1392,12 +1438,12 @@ async function run() {
         try { await loginBrowser.close(); } catch {}
     }
 
-    await writeResults(dataFile, results);
+    await writeResults(dataFile, results, { napDisplayName });
 }
 
-async function writeResults(dataFile, results) {
+async function writeResults(dataFile, results, meta = {}) {
     const resultsFile = dataFile.replace('.json', '_results.json');
-    fs.writeFileSync(resultsFile, JSON.stringify({ results }, null, 2));
+    fs.writeFileSync(resultsFile, JSON.stringify({ ...meta, results }, null, 2));
     console.log(`Results: ${resultsFile}`);
 }
 

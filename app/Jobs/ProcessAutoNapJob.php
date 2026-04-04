@@ -2,13 +2,16 @@
 
 namespace App\Jobs;
 
+use App\Mail\AutoNapJobReport;
 use App\Services\AblyProgressService;
 use App\Services\NapCallbackService;
 use App\Services\NapDirectHttpService;
+use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Symfony\Component\Process\Process;
 
 class ProcessAutoNapJob implements ShouldQueue
@@ -53,6 +56,7 @@ class ProcessAutoNapJob implements ShouldQueue
      */
     protected function handleThaiIdFlow(): void
     {
+        $startedAt = Carbon::now('Asia/Bangkok');
         $ablyKey = $this->getAblyKey();
         $total = count($this->items);
 
@@ -99,6 +103,7 @@ class ProcessAutoNapJob implements ShouldQueue
 
         $resultsData = json_decode(file_get_contents($resultsFile), true);
         $results = $resultsData['results'] ?? [];
+        $napDisplayName = $resultsData['napDisplayName'] ?? '';
 
         // Send callbacks to CAREMAT for each result
         $success = 0;
@@ -136,10 +141,23 @@ class ProcessAutoNapJob implements ShouldQueue
             }
         }
 
+        $finishedAt = Carbon::now('Asia/Bangkok');
+
         Log::info("AutoNAP {$this->formType} job completed: {$this->jobId}", compact('total', 'success', 'failed'));
 
         // Release site lock so next job can run
         Cache::forget("autonap:{$this->site}:{$this->formType}");
+
+        // Send email report
+        $this->sendReport([
+            'napDisplayName' => $napDisplayName,
+            'startedAt' => $startedAt,
+            'finishedAt' => $finishedAt,
+            'total' => $total,
+            'success' => $success,
+            'failed' => $failed,
+            'results' => $results,
+        ]);
 
         $this->cleanup($dataFile, $resultsFile);
     }
@@ -186,6 +204,45 @@ class ProcessAutoNapJob implements ShouldQueue
         $ablyKey = $this->getAblyKey();
 
         return ! empty($ablyKey) ? new AblyProgressService($ablyKey, $this->ablyChannel) : null;
+    }
+
+    /**
+     * Send email report after job completion.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function sendReport(array $data): void
+    {
+        $to = config('mail.to.address');
+
+        if (empty($to)) {
+            return;
+        }
+
+        try {
+            $durationSeconds = $data['startedAt']->diffInSeconds($data['finishedAt']);
+
+            $report = [
+                'jobId' => $this->jobId,
+                'site' => $this->site,
+                'formType' => $this->formType,
+                'napDisplayName' => $data['napDisplayName'],
+                'startedAt' => $data['startedAt']->format('d/m/Y H:i:s'),
+                'finishedAt' => $data['finishedAt']->format('d/m/Y H:i:s'),
+                'durationSeconds' => $durationSeconds,
+                'avgSecondsPerRecord' => $data['total'] > 0 ? round($durationSeconds / $data['total'], 1) : 0,
+                'total' => $data['total'],
+                'success' => $data['success'],
+                'failed' => $data['failed'],
+                'results' => $data['results'],
+            ];
+
+            Mail::to($to)->send(new AutoNapJobReport($report));
+
+            Log::info("AutoNAP report email sent to {$to}");
+        } catch (\Exception $e) {
+            Log::warning("AutoNAP report email failed: {$e->getMessage()}");
+        }
     }
 
     /**
