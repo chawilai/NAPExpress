@@ -657,6 +657,15 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         // 1. ช่องทางมารับบริการ: RRTTR (index 7)
         clickCheckbox('vct_receive_from_status_7');
 
+        // 1.1 หน่วยงาน/แผนกที่ส่งต่อ: ตาม source type
+        // index 0 = หน่วยบริการ หรือ คลินิกภายในรพ (DIC/walk in)
+        // index 1 = การออกพื้นที่โดย หน่วยบริการ (Mobile/reach)
+        if (data.source === 'walk in' || data.sourceType === 'DIC') {
+            clickCheckbox('vct_receive_from_status_0');
+        } else {
+            clickCheckbox('vct_receive_from_status_1');
+        }
+
         // 2. UIC (if from RRTTR)
         if (data.uic) {
             const uicInput = document.getElementById('rrtr_uic');
@@ -678,8 +687,8 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         // 6. Pre-test: ทำ
         clickRadio('pre_test_status', 'Y');
 
-        // 7. Pre-test type: PICT (1)
-        clickRadio('pre_test_type', '1');
+        // 7. Pre-test type: CITC (2) — ผู้รับบริการแสดงความต้องการตรวจด้วยตนเอง
+        clickRadio('pre_test_type', '2');
 
         // 8. Pre-test method: รายบุคคล (2)
         clickRadio('pre_test_method', '2');
@@ -687,8 +696,8 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         // 9. Post-test: ทำ
         clickRadio('post_test_status', 'Y');
 
-        // 10. Couple counseling: ไม่มีคู่ (3)
-        clickRadio('post_test_couple_result_status', '3');
+        // 10. Couple counseling: มีคู่ แต่คู่ไม่ได้ตรวจ (2)
+        clickRadio('post_test_couple_result_status', '2');
 
         // 11. STI — check if any STI results exist
         const sti = data.sti || {};
@@ -731,12 +740,12 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
                 clickCheckbox('post_test_sti_chlamydia');
             }
         } else {
-            // ไม่ส่งต่อ (2)
-            const stiRadio = document.querySelector('#post_test_sti_2');
-            if (stiRadio) {
-                stiRadio.click();
+            // ไม่มีผล STI → ส่งต่อ (1) + ไม่ได้ตรวจ
+            const stiForward = document.querySelector('#post_test_sti_1');
+            if (stiForward) {
+                stiForward.click();
                 if (typeof doclick_post_test_sti === 'function') {
-                    doclick_post_test_sti('2', true);
+                    doclick_post_test_sti('1', true);
                 }
             }
         }
@@ -754,20 +763,21 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
                 condomCheckboxControl(condomY);
             }
         }
-    }, { kp, kpIndex, uic, sti: item.sti || {} });
+    }, { kp, kpIndex, uic, sti: item.sti || {}, source: item.source || '', sourceType: item.source_type || '' });
 
-    // STI sub-option: only needed when "ไม่ส่งต่อ" was selected (no STI results)
+    // STI sub-option: when no STI results → "ส่งต่อ" + "ไม่ได้ตรวจ"
     const sti = item.sti || {};
     const hasStiResult = sti.syphilis || sti.ct || sti.ng;
     if (!hasStiResult) {
         await delay(300);
         await page.evaluate(() => {
-            const stiNotFwd = document.querySelector('#post_test_sti_not_forward_1');
-            if (stiNotFwd) {
-                stiNotFwd.disabled = false;
-                stiNotFwd.click();
-                if (typeof doclick_post_test_sti_not_forward === 'function') {
-                    doclick_post_test_sti_not_forward('1', true);
+            // Select "ไม่ได้ตรวจ" under ส่งต่อ
+            const stiSendNotChecked = document.querySelector('#post_test_sti_send_1');
+            if (stiSendNotChecked) {
+                stiSendNotChecked.disabled = false;
+                stiSendNotChecked.click();
+                if (typeof doclick_post_test_sti_send === 'function') {
+                    doclick_post_test_sti_send('N', true);
                 }
             }
         });
