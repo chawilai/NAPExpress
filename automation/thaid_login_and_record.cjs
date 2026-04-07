@@ -26,6 +26,9 @@ const NAP_URLS = {
     createVCTBase: 'https://dmis.nhso.go.th/NAPPLUS/vct/createVCT.do',
     createHivLab: 'https://dmis.nhso.go.th/NAPPLUS/hivLabRequest/createHivLabRequest.do?actionName=load',
     createHivLabBase: 'https://dmis.nhso.go.th/NAPPLUS/hivLabRequest/createHivLabRequest.do',
+    searchVCT: 'https://dmis.nhso.go.th/NAPPLUS/vct/searchVCT.do',
+    searchHivLab: 'https://dmis.nhso.go.th/NAPPLUS/hivLabRequest/searchHivLabRequest.do',
+    searchLabResult: 'https://dmis.nhso.go.th/NAPPLUS/responseLabRequest/searchResponseLabRequest.do',
 };
 
 const VCT_KP_MAP = {
@@ -1036,6 +1039,109 @@ async function fillAndSubmitHivResult(page, context, loginCookies, labCode, test
 }
 
 // ============================================================
+// Lookup existing codes (for duplicate VCT handling)
+// ============================================================
+
+/**
+ * Search for existing VCT code by PID.
+ * Returns the most recent VCT code or null.
+ */
+async function lookupExistingVCT(page, pid) {
+    await page.goto(NAP_URLS.searchVCT, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    // Set actionName and fill PID
+    await page.evaluate(() => {
+        document.getElementById('actionName').value = 'search';
+    });
+    await page.fill('input#pid', pid);
+    await page.click('input[name="cmdSearch"]');
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await delay(1000);
+
+    // Extract VCT code from first row of result table
+    const vctCode = await page.evaluate(() => {
+        const rows = document.querySelectorAll('table.result tbody tr');
+        for (const row of rows) {
+            const cells = row.querySelectorAll('td');
+            for (const cell of cells) {
+                const text = cell.textContent?.trim() || '';
+                const match = text.match(/V\d{2}-\d+-\d+/);
+                if (match) return match[0];
+            }
+        }
+        return null;
+    });
+
+    return vctCode;
+}
+
+/**
+ * Search for existing ANTIHIV code by PID.
+ * Returns the most recent ANTIHIV code or null.
+ */
+async function lookupExistingLab(page, pid) {
+    await page.goto(NAP_URLS.searchHivLab, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    await page.evaluate(() => {
+        document.getElementById('actionName').value = 'search';
+    });
+    await page.fill('input#pid', pid);
+    await page.click('input[name="cmdSearch"]');
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await delay(1000);
+
+    // Extract ANTIHIV code from first row
+    const labCode = await page.evaluate(() => {
+        const rows = document.querySelectorAll('table.result tbody tr');
+        for (const row of rows) {
+            const cells = row.querySelectorAll('td');
+            for (const cell of cells) {
+                const text = cell.textContent?.trim() || '';
+                const match = text.match(/ANTIHIV-[\d-]+/);
+                if (match) return match[0];
+            }
+        }
+        return null;
+    });
+
+    return labCode;
+}
+
+/**
+ * Check if HIV test result already exists for a given ANTIHIV code.
+ * Returns { hasResult: bool, result: 'Positive'|'Negative'|'Inconclusive'|null }
+ */
+async function lookupExistingResult(page, labCode) {
+    await page.goto(NAP_URLS.searchLabResult, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    await page.evaluate(() => {
+        document.getElementById('actionName').value = 'search';
+    });
+    await page.fill('input#lab_request_id', labCode);
+    await page.selectOption('#lab_type', '1:001'); // ANTIHIV
+    await page.click('input[name="cmdSearch"]');
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await delay(1000);
+
+    // Check if result row exists and has a result value
+    const result = await page.evaluate(() => {
+        const resultSelect = document.getElementById('lab_result_0');
+        if (!resultSelect) return { hasResult: false, result: null };
+
+        const value = resultSelect.value;
+        if (!value) return { hasResult: false, result: null };
+
+        const map = { '1': 'Positive', '2': 'Negative', '3': 'Inconclusive' };
+        return { hasResult: true, result: map[value] || null };
+    });
+
+    return result;
+}
+
+// ============================================================
 // Main
 // ============================================================
 
@@ -1196,8 +1302,9 @@ async function run() {
                     // === VCT Flow (multi-step callback) ===
                     let vctCode = item.nap_vct_code || null;
                     let labCode = item.nap_code || null;
-                    const skipVCT = !!vctCode;
-                    const skipLab = !!labCode;
+                    let skipVCT = !!vctCode;
+                    let skipLab = !!labCode;
+                    let fromLookup = false;
 
                     // Step 1: Record VCT
                     if (skipVCT && skipLab && item.test_result) {
@@ -1222,31 +1329,101 @@ async function run() {
                                 vctCode = vctResult;
                             }
                         } catch (vctErr) {
-                            // Check if error contains VCT code (duplicate case)
                             const errMsg = vctErr.message || '';
-                            const vctMatch = errMsg.match(/V\d{2}-\d+-\d+/);
-                            if (vctMatch) {
-                                vctCode = vctMatch[0];
-                                log(jobId, `  Record ${i + 1}: VCT ซ้ำ แต่ได้ code ${vctCode}`);
+                            const isDuplicate = errMsg.includes('ซ้ำ');
+
+                            if (isDuplicate) {
+                                // Duplicate VCT — lookup existing codes
+                                log(jobId, `  Record ${i + 1}: VCT ซ้ำ — ค้นหา code เดิม...`);
+                                await ably?.publish('job:record:filling', {
+                                    jobId, index: i + 1, total,
+                                    message: `🔍 VCT ซ้ำ — กำลังค้นหา code เดิม... (${i + 1}/${total})`,
+                                }, 300);
+
+                                try {
+                                    vctCode = await lookupExistingVCT(page, item.id_card);
+                                    if (vctCode) {
+                                        log(jobId, `  Record ${i + 1}: ค้นพบ VCT เดิม = ${vctCode}`);
+                                        fromLookup = true;
+                                    }
+
+                                    labCode = await lookupExistingLab(page, item.id_card);
+                                    if (labCode) {
+                                        log(jobId, `  Record ${i + 1}: ค้นพบ ANTIHIV เดิม = ${labCode}`);
+                                        skipLab = true;
+
+                                        // Check if result already recorded
+                                        const existingResult = await lookupExistingResult(page, labCode);
+                                        if (existingResult.hasResult) {
+                                            log(jobId, `  Record ${i + 1}: ผลตรวจเดิม = ${existingResult.result}`);
+                                            // Send all 3 callbacks with existing data
+                                            if (!isDryRun && cbUrl) {
+                                                const comment = 'VCT,Lab,Result ครบ ดึงค่าเดิม';
+                                                await sendCallback(cbUrl, { ...buildVctCallback(item, jobFy, vctCode, napDisplayName), nap_comment: comment });
+                                                await sendCallback(cbUrl, { ...buildLabCallback(item, jobFy, labCode, napDisplayName), nap_comment: comment });
+                                                await sendCallback(cbUrl, { ...buildResultCallback(item, jobFy, existingResult.result, napDisplayName), nap_comment: comment });
+                                            }
+                                            // Skip further steps for this record
+                                            results.push({
+                                                id_card: item.id_card, uic, success: true,
+                                                nap_code: vctCode, nap_lab_code: labCode,
+                                                error: null,
+                                            });
+                                            continue; // next record
+                                        }
+                                        // Has lab but no result → will continue to Step 3 below
+                                    }
+
+                                    if (!vctCode) {
+                                        // Lookup failed — report original error
+                                        if (!isDryRun && cbUrl) {
+                                            await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null));
+                                        }
+                                        throw vctErr;
+                                    }
+                                } catch (lookupErr) {
+                                    if (lookupErr === vctErr) throw lookupErr;
+                                    log(jobId, `  Record ${i + 1}: Lookup failed = ${lookupErr.message}`);
+                                    if (!isDryRun && cbUrl) {
+                                        await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null));
+                                    }
+                                    throw vctErr;
+                                }
                             } else {
-                                // Send error callback
+                                // Non-duplicate error
                                 if (!isDryRun && cbUrl) {
                                     await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null));
                                 }
-                                throw vctErr; // re-throw to outer catch
+                                throw vctErr;
                             }
                         }
                     }
 
                     // Callback #1: VCT code
                     if (vctCode && !isDryRun) {
-                        log(jobId, `  Record ${i + 1}: VCT=${vctCode} — sending VCT callback`);
+                        const vctComment = fromLookup ? 'VCT ซ้ำ — ดึงค่าเดิม' : undefined;
+                        const vctLabel = fromLookup ? '🔄 ดึงค่าเดิม' : '✅ บันทึกสำเร็จ';
+                        log(jobId, `  Record ${i + 1}: VCT=${vctCode} — sending VCT callback${fromLookup ? ' (lookup)' : ''}`);
                         await ably?.publish('job:record:success', {
                             jobId, index: i + 1, total, napCode: vctCode, uic,
-                            message: `✅ บันทึกสำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | VCT: ${vctCode}`,
+                            message: `${vctLabel} (${i + 1}/${total}) | PID: ${pidMasked} | VCT: ${vctCode}`,
                         }, 300);
                         if (cbUrl) {
-                            await sendCallback(cbUrl, buildVctCallback(item, jobFy, vctCode, napDisplayName));
+                            const cb = buildVctCallback(item, jobFy, vctCode, napDisplayName);
+                            if (vctComment) cb.nap_comment = vctComment;
+                            await sendCallback(cbUrl, cb);
+                        }
+
+                        // If lab code from lookup, send Lab callback too
+                        if (fromLookup && labCode && cbUrl) {
+                            log(jobId, `  Record ${i + 1}: Lab=${labCode} — sending Lab callback (lookup)`);
+                            const labCb = buildLabCallback(item, jobFy, labCode, napDisplayName);
+                            labCb.nap_comment = 'VCT, Lab ซ้ำ — ดึงค่าเดิม';
+                            await sendCallback(cbUrl, labCb);
+                            await ably?.publish('job:record:success', {
+                                jobId, index: i + 1, total, labCode, uic, pidMasked,
+                                message: `🔄 Lab ดึงค่าเดิม (${i + 1}/${total}) | ANTIHIV: ${labCode}`,
+                            }, 300);
                         }
                     }
 
