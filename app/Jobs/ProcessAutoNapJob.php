@@ -3,6 +3,8 @@
 namespace App\Jobs;
 
 use App\Mail\AutoNapJobReport;
+use App\Models\AutonapRecord;
+use App\Models\AutonapRequest;
 use App\Services\AblyProgressService;
 use App\Services\NapCallbackService;
 use App\Services\NapDirectHttpService;
@@ -147,6 +149,9 @@ class ProcessAutoNapJob implements ShouldQueue
 
         Log::info("AutoNAP {$this->formType} job completed: {$this->jobId}", compact('total', 'success', 'failed'));
 
+        // Save to database
+        $this->saveToDatabase($napDisplayName, $napSiteName, $startedAt, $finishedAt, $success, $failed, $results);
+
         // Release site lock so next job can run
         Cache::forget("autonap:{$this->site}:{$this->formType}");
 
@@ -196,6 +201,58 @@ class ProcessAutoNapJob implements ShouldQueue
         }
 
         return $key;
+    }
+
+    /**
+     * Save job results to database.
+     *
+     * @param  array<int, array<string, mixed>>  $results
+     */
+    protected function saveToDatabase(
+        string $napDisplayName,
+        string $napSiteName,
+        Carbon $startedAt,
+        Carbon $finishedAt,
+        int $success,
+        int $failed,
+        array $results,
+    ): void {
+        try {
+            $request = AutonapRequest::where('job_id', $this->jobId)->first();
+
+            if (! $request) {
+                return;
+            }
+
+            $request->update([
+                'nap_user' => $napDisplayName ?: null,
+                'nap_site' => $napSiteName ?: null,
+                'success' => $success,
+                'failed' => $failed,
+                'status' => $failed === count($results) ? 'failed' : 'completed',
+                'started_at' => $startedAt,
+                'finished_at' => $finishedAt,
+            ]);
+
+            foreach ($results as $i => $result) {
+                $item = $this->items[$i] ?? [];
+
+                AutonapRecord::create([
+                    'request_id' => $request->id,
+                    'seq' => $i + 1,
+                    'uic' => $result['uic'] ?? $item['uic'] ?? null,
+                    'pid_masked' => isset($result['id_card']) ? 'xxxx'.substr($result['id_card'], -4) : null,
+                    'form_type' => $this->formType,
+                    'success' => $result['success'] ?? false,
+                    'nap_code' => $result['nap_code'] ?? null,
+                    'nap_lab_code' => $result['nap_lab_code'] ?? null,
+                    'hiv_result' => $result['hiv_result'] ?? null,
+                    'comment' => $result['error'] ?? null,
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::warning("Failed to save job history: {$e->getMessage()}");
+        }
     }
 
     protected function createProgress(): ?AblyProgressService
@@ -255,6 +312,11 @@ class ProcessAutoNapJob implements ShouldQueue
     {
         Log::error("AutoNAP {$this->formType} job failed: {$this->jobId}", [
             'error' => $exception?->getMessage(),
+        ]);
+
+        AutonapRequest::where('job_id', $this->jobId)->update([
+            'status' => 'failed',
+            'finished_at' => now('Asia/Bangkok'),
         ]);
 
         Cache::forget("autonap:{$this->site}:{$this->formType}");

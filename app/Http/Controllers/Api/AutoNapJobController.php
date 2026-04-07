@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessAutoNapJob;
+use App\Models\AutonapRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -97,6 +98,17 @@ class AutoNapJobController extends Controller
 
         // Use full items from request (not $validated which strips extra rr_form fields)
         $items = $request->input('items');
+
+        // Save request to database
+        AutonapRequest::create([
+            'job_id' => $jobId,
+            'site' => $site,
+            'form_type' => $formType,
+            'method' => $method,
+            'fy' => $validated['fy'],
+            'total' => count($items),
+            'status' => 'pending',
+        ]);
 
         // Store full request as JSON log file for audit/debugging
         $this->storeRequestLog($jobId, $formType, $validated, $items);

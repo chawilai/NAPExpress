@@ -146,6 +146,39 @@ function log(jobId, msg) {
     console.log(`[Job ${jobId}] ${msg}`);
 }
 
+/**
+ * Convert Playwright/technical error messages to human-friendly Thai text for UI display.
+ * Full error is preserved in logs — this is only for Ably events shown to users.
+ */
+function humanError(err) {
+    const msg = typeof err === 'string' ? err : err?.message || 'Unknown error';
+
+    // Timeout errors
+    if (msg.includes('Timeout') && msg.includes('exceeded'))
+        return 'หมดเวลาการทำงาน — ระบบ NAP ตอบสนองช้า';
+
+    // Browser closed/crashed
+    if (msg.includes('Target page') || msg.includes('browser has been closed'))
+        return 'เบราว์เซอร์ขัดข้อง — กรุณาลองใหม่';
+
+    // Session expired
+    if (msg.includes('Session expired') || msg.includes('redirected to login'))
+        return 'Session หมดอายุ — ต้อง login ใหม่';
+
+    // NAP Plus business errors (already in Thai) — pass through
+    if (/[ก-๙]/.test(msg)) return msg;
+
+    // Navigation errors
+    if (msg.includes('page.goto') || msg.includes('net::ERR'))
+        return 'ไม่สามารถเชื่อมต่อระบบ NAP ได้';
+
+    // Generic Playwright errors — shorten
+    if (msg.includes('page.') || msg.includes('locator('))
+        return 'เกิดข้อผิดพลาดในการกรอกข้อมูล';
+
+    return msg;
+}
+
 async function delay(ms) {
     return new Promise(r => setTimeout(r, ms));
 }
@@ -1463,8 +1496,8 @@ async function run() {
                         } catch (labErr) {
                             log(jobId, `  Record ${i + 1}: Lab error = ${labErr.message}`);
                             await ably?.publish('job:record:failed', {
-                                jobId, index: i + 1, total, error: labErr.message, uic,
-                                message: `❌ Lab ล้มเหลว (${i + 1}/${total}) | ${labErr.message}`,
+                                jobId, index: i + 1, total, error: humanError(labErr), uic,
+                                message: `❌ Lab ล้มเหลว (${i + 1}/${total}) | ${humanError(labErr)}`,
                             }, 300);
                         }
                     }
@@ -1495,8 +1528,8 @@ async function run() {
                         } catch (resultErr) {
                             log(jobId, `  Record ${i + 1}: Result error = ${resultErr.message}`);
                             await ably?.publish('job:record:failed', {
-                                jobId, index: i + 1, total, error: resultErr.message, uic,
-                                message: `❌ ลงผล HIV ล้มเหลว (${i + 1}/${total}) | ${resultErr.message}`,
+                                jobId, index: i + 1, total, error: humanError(resultErr), uic,
+                                message: `❌ ลงผล HIV ล้มเหลว (${i + 1}/${total}) | ${humanError(resultErr)}`,
                             }, 300);
                         }
                     }
@@ -1578,8 +1611,8 @@ async function run() {
                 log(jobId, `  Record ${i + 1} error: ${err.message}`);
                 results.push({ id_card: item.id_card, uic, success: false, nap_code: null, nap_lab_code: null, error: err.message });
                 await ably?.publish('job:record:failed', {
-                    jobId, index: i + 1, total, error: err.message, uic,
-                    message: `❌ ล้มเหลว (${i + 1}/${total}) | ${err.message}`,
+                    jobId, index: i + 1, total, error: humanError(err), uic,
+                    message: `❌ ล้มเหลว (${i + 1}/${total}) | ${humanError(err)}`,
                 }, 300);
             }
         }
