@@ -8,6 +8,7 @@ use App\Models\AutonapRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class AutoNapJobController extends Controller
@@ -34,7 +35,7 @@ class AutoNapJobController extends Controller
             'nap_password' => ['nullable', 'string'],
             'callback_url' => ['required', 'url'],
             'ably_channel' => ['nullable', 'string'],
-            'items' => ['required', 'array', 'min:1'],
+            'items' => ['required', 'array', 'min:1', 'max:50'],
             'items.*.source_id' => ['required'],
             'items.*.source' => ['required', 'string'],
             'items.*.id_card' => ['required', 'string', 'size:13'],
@@ -129,15 +130,22 @@ class AutoNapJobController extends Controller
             formType: $formType,
         );
 
+        // Check queue depth — if other jobs waiting, inform caller
+        $queueDepth = DB::table('jobs')->count();
+        $queued = $queueDepth > 1;
+
         return response()->json([
             'status' => 'ok',
             'job_id' => $jobId,
             'form_type' => $formType,
             'method' => $method,
             'total' => count($validated['items']),
-            'message' => $method === 'ThaiID'
-                ? 'Job dispatched. QR code will be sent via Ably — scan with ThaiD app.'
-                : 'Job dispatched. Subscribe to Ably channel for progress.',
+            'queued' => $queued,
+            'message' => $queued
+                ? "Job อยู่ในคิว (มี {$queueDepth} งานรอ) — QR code จะแสดงเมื่อถึงคิว"
+                : ($method === 'ThaiID'
+                    ? 'Job dispatched. QR code will be sent via Ably — scan with ThaiD app.'
+                    : 'Job dispatched. Subscribe to Ably channel for progress.'),
             'ably_channel' => $validated['ably_channel'] ?? null,
         ]);
     }
