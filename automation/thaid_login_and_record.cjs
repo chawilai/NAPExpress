@@ -79,7 +79,7 @@ async function sendCallback(callbackUrl, payload) {
     }
 }
 
-function buildBasePayload(item, fy) {
+function buildBasePayload(item, fy, napStaffName = '') {
     return {
         form_type: 'VCT',
         source_id: item.source_id,
@@ -88,24 +88,24 @@ function buildBasePayload(item, fy) {
         id_card: item.id_card,
         kp: item.kp,
         fy: fy,
-        nap_staff: item.cbs || 'AutoNAP',
+        nap_staff: napStaffName || 'AutoNAP',
         status: 'success',
         row_id: item.row_id,
     };
 }
 
-function buildVctCallback(item, fy, vctCode) {
+function buildVctCallback(item, fy, vctCode, napStaffName = '') {
     return {
-        ...buildBasePayload(item, fy),
+        ...buildBasePayload(item, fy, napStaffName),
         nap_vct_code: vctCode,
         vct_nap_status: 'true',
         nap_comment: 'VCT AutoNAP',
     };
 }
 
-function buildLabCallback(item, fy, labCode) {
+function buildLabCallback(item, fy, labCode, napStaffName = '') {
     return {
-        ...buildBasePayload(item, fy),
+        ...buildBasePayload(item, fy, napStaffName),
         nap_code: labCode,
         nap_lab_code: labCode,
         nap_status: 'true',
@@ -113,9 +113,9 @@ function buildLabCallback(item, fy, labCode) {
     };
 }
 
-function buildResultCallback(item, fy, hivResult) {
+function buildResultCallback(item, fy, hivResult, napStaffName = '') {
     return {
-        ...buildBasePayload(item, fy),
+        ...buildBasePayload(item, fy, napStaffName),
         hiv_result: hivResult,
         nap_status: 'true',
         nap_comment: 'VCT, Lab, Result AutoNAP',
@@ -1246,7 +1246,7 @@ async function run() {
                             message: `✅ บันทึกสำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | VCT: ${vctCode}`,
                         }, 300);
                         if (cbUrl) {
-                            await sendCallback(cbUrl, buildVctCallback(item, jobFy, vctCode));
+                            await sendCallback(cbUrl, buildVctCallback(item, jobFy, vctCode, napDisplayName));
                         }
                     }
 
@@ -1270,7 +1270,7 @@ async function run() {
                                     jobId, index: i + 1, total, labCode, uic, pidMasked,
                                     message: `✅ Lab สำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | ANTIHIV: ${labCode}`,
                                 }, 300);
-                                await sendCallback(cbUrl, buildLabCallback(item, jobFy, labCode));
+                                await sendCallback(cbUrl, buildLabCallback(item, jobFy, labCode, napDisplayName));
                             }
 
                         } catch (labErr) {
@@ -1303,7 +1303,7 @@ async function run() {
                                     jobId, index: i + 1, total, uic, pidMasked,
                                     message: `✅ ลงผลสำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | ผล: ${item.hiv_result}`,
                                 }, 300);
-                                await sendCallback(cbUrl, buildResultCallback(item, jobFy, item.hiv_result));
+                                await sendCallback(cbUrl, buildResultCallback(item, jobFy, item.hiv_result, napDisplayName));
                             }
                         } catch (resultErr) {
                             log(jobId, `  Record ${i + 1}: Result error = ${resultErr.message}`);

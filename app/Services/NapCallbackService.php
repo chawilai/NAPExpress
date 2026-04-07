@@ -20,6 +20,7 @@ class NapCallbackService
         string $comment = '',
         ?string $napLabCode = null,
         string $formType = 'RR',
+        string $napStaffName = '',
     ): array {
         $rrForm = $rowData['rr_form'] ?? [];
         $identification = $rowData['identification'] ?? [];
@@ -37,7 +38,7 @@ class NapCallbackService
             'kp' => $person['kp'] ?? $rowData['kp'] ?? null,
             'fy' => $context['fy'] ?? $rowData['fy'] ?? null,
             'nap_comment' => trim(($comment ?: '').' AutoNAP'),
-            'nap_staff' => $rowData['cbs'] ?? 'AutoNAP',
+            'nap_staff' => $napStaffName ?: ($rowData['cbs'] ?? 'AutoNAP'),
             'nap_status' => 'true',
             'status' => $status,
             'row_id' => $rowData['row_id'] ?? null,

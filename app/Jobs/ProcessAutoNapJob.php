@@ -136,6 +136,7 @@ class ProcessAutoNapJob implements ShouldQueue
                         $error,
                         $napLabCode,
                         $this->formType,
+                        $napDisplayName,
                     ),
                     $this->callbackUrl,
                 );
