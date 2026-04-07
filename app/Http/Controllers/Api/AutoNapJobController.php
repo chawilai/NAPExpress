@@ -130,9 +130,28 @@ class AutoNapJobController extends Controller
             formType: $formType,
         );
 
-        // Check queue depth — if other jobs waiting, inform caller
+        // Check queue depth and estimate wait time
         $queueDepth = DB::table('jobs')->count();
         $queued = $queueDepth > 1;
+        $estimatedWaitMinutes = null;
+
+        if ($queued) {
+            // Count records ahead in queue (pending/running jobs excluding this one)
+            $recordsAhead = AutonapRequest::whereIn('status', ['pending', 'running'])
+                ->where('job_id', '!=', $jobId)
+                ->sum('total');
+
+            // Calculate avg seconds per record from completed jobs
+            $avgPerRecord = AutonapRequest::where('status', 'completed')
+                ->whereNotNull('started_at')
+                ->whereNotNull('finished_at')
+                ->where('total', '>', 0)
+                ->selectRaw('AVG(TIMESTAMPDIFF(SECOND, started_at, finished_at) / total) as avg')
+                ->value('avg');
+
+            $avgPerRecord = $avgPerRecord ?: 40; // default 40s if no data yet
+            $estimatedWaitMinutes = (int) ceil(($recordsAhead * $avgPerRecord) / 60);
+        }
 
         return response()->json([
             'status' => 'ok',
@@ -141,8 +160,9 @@ class AutoNapJobController extends Controller
             'method' => $method,
             'total' => count($validated['items']),
             'queued' => $queued,
+            'estimated_wait_minutes' => $estimatedWaitMinutes,
             'message' => $queued
-                ? "Job อยู่ในคิว (มี {$queueDepth} งานรอ) — QR code จะแสดงเมื่อถึงคิว"
+                ? "Job อยู่ในคิว (มี {$queueDepth} งานรอ ประมาณ {$estimatedWaitMinutes} นาที) — QR code จะแสดงเมื่อถึงคิว"
                 : ($method === 'ThaiID'
                     ? 'Job dispatched. QR code will be sent via Ably — scan with ThaiD app.'
                     : 'Job dispatched. Subscribe to Ably channel for progress.'),
