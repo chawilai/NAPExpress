@@ -50,6 +50,8 @@ class NapCallbackService
             $payload['nap_lab_code'] = $napLabCode;
         } else {
             $payload['nap_code'] = $napCode;
+            $payload['next_hcode'] = $rrForm['next_hcode'] ?? $rowData['next_hcode'] ?? null;
+            $payload['next_hname'] = $rrForm['next_hname'] ?? $rowData['next_hname'] ?? null;
         }
 
         return $payload;
