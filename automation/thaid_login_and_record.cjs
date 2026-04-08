@@ -1265,27 +1265,31 @@ async function run() {
             message: `📋 กำลังเตรียมข้อมูล ${total} รายการ... (headless mode)`,
         }, 1000);
 
-        const workBrowser = await chromium.launch({
-            headless: !isDryRun, // headed only for dry run inspection
-            args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        });
+        const BATCH_SIZE = 25; // Restart browser every N records to prevent memory leak
 
-        const workContext = await workBrowser.newContext({
-            viewport: { width: 1280, height: 900 },
-            locale: 'th-TH',
-            timezoneId: 'Asia/Bangkok',
-        });
+        // Helper: create fresh headless browser with cookies
+        async function createWorkBrowser() {
+            const browser = await chromium.launch({
+                headless: !isDryRun,
+                args: ['--no-sandbox', '--disable-setuid-sandbox'],
+            });
+            const ctx = await browser.newContext({
+                viewport: { width: 1280, height: 900 },
+                locale: 'th-TH',
+                timezoneId: 'Asia/Bangkok',
+            });
+            await ctx.addCookies(cookies);
+            ctx.setDefaultTimeout(20000);
+            const pg = await ctx.newPage();
+            pg.on('dialog', async dlg => {
+                log(jobId, `Dialog: "${dlg.message()}"`);
+                await dlg.accept();
+            });
+            return { browser, page: pg };
+        }
 
-        // Inject session cookies from login
-        await workContext.addCookies(cookies);
-        workContext.setDefaultTimeout(20000);
-
-        const page = await workContext.newPage();
-        page.on('dialog', async dlg => {
-            log(jobId, `Dialog: "${dlg.message()}"`);
-            await dlg.accept();
-        });
-
+        let workBrowser, page;
+        ({ browser: workBrowser, page } = await createWorkBrowser());
         log(jobId, 'Headless browser ready with session cookies');
 
         // Extract NAP display name from first page load (headless)
@@ -1314,6 +1318,17 @@ async function run() {
 
         // Process records
         for (let i = 0; i < (items || []).length; i++) {
+            // Restart browser every BATCH_SIZE records to prevent memory leak
+            if (i > 0 && i % BATCH_SIZE === 0) {
+                log(jobId, `Batch ${i}/${total} — restarting browser to free memory`);
+                await ably?.publish('job:preparing', {
+                    jobId, total,
+                    message: `🔄 รีเซ็ตเบราว์เซอร์... (${i}/${total})`,
+                }, 500);
+                try { await workBrowser.close(); } catch {}
+                ({ browser: workBrowser, page } = await createWorkBrowser());
+                log(jobId, 'Browser restarted');
+            }
             const item = items[i];
             const uic = item.uic || '';
             const pidMasked = 'xxxx' + (item.id_card || '').slice(-4);
