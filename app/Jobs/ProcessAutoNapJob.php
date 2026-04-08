@@ -287,6 +287,7 @@ class ProcessAutoNapJob implements ShouldQueue
                 'site' => $this->site,
                 'formType' => $this->formType,
                 'napDisplayName' => $data['napDisplayName'],
+                'napSiteName' => $data['napSiteName'] ?? '',
                 'startedAt' => $data['startedAt']->format('d/m/Y H:i:s'),
                 'finishedAt' => $data['finishedAt']->format('d/m/Y H:i:s'),
                 'durationSeconds' => $durationSeconds,
