@@ -147,25 +147,35 @@ class ProcessAutoNapJob implements ShouldQueue
 
         $finishedAt = Carbon::now('Asia/Bangkok');
 
-        Log::info("AutoNAP {$this->formType} job completed: {$this->jobId}", compact('total', 'success', 'failed'));
+        // Check if this is just a login timeout (not a real failure)
+        $isLoginTimeout = $success === 0 && ! empty($results)
+            && str_contains($results[0]['error'] ?? '', 'Login failed');
 
-        // Save to database
-        $this->saveToDatabase($napDisplayName, $napSiteName, $startedAt, $finishedAt, $success, $failed, $results);
+        Log::info("AutoNAP {$this->formType} job completed: {$this->jobId}", compact('total', 'success', 'failed'));
 
         // Release site lock so next job can run
         Cache::forget("autonap:{$this->site}:{$this->formType}");
 
-        // Send email report
-        $this->sendReport([
-            'napDisplayName' => $napDisplayName,
-            'napSiteName' => $napSiteName,
-            'startedAt' => $startedAt,
-            'finishedAt' => $finishedAt,
-            'total' => $total,
-            'success' => $success,
-            'failed' => $failed,
-            'results' => $results,
-        ]);
+        if ($isLoginTimeout) {
+            // Login timeout — skip database + email (not a real job)
+            Log::info("AutoNAP: Login timeout — skipping report for {$this->jobId}");
+            AutonapRequest::where('job_id', $this->jobId)->delete();
+        } else {
+            // Save to database
+            $this->saveToDatabase($napDisplayName, $napSiteName, $startedAt, $finishedAt, $success, $failed, $results);
+
+            // Send email report
+            $this->sendReport([
+                'napDisplayName' => $napDisplayName,
+                'napSiteName' => $napSiteName,
+                'startedAt' => $startedAt,
+                'finishedAt' => $finishedAt,
+                'total' => $total,
+                'success' => $success,
+                'failed' => $failed,
+                'results' => $results,
+            ]);
+        }
 
         $this->cleanup($dataFile, $resultsFile);
     }
