@@ -165,6 +165,32 @@ class DashboardController extends Controller
             ->selectRaw('AVG(TIMESTAMPDIFF(SECOND, started_at, finished_at) / total) as avg')
             ->value('avg');
 
+        $recentJobs = (clone $filtered)
+            ->select('job_id', 'site', 'form_type', 'nap_user', 'total', 'success', 'failed', 'status', 'started_at', 'finished_at')
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get()
+            ->map(function ($job) {
+                $duration = null;
+                if ($job->started_at && $job->finished_at) {
+                    $duration = $job->started_at->diffInSeconds($job->finished_at);
+                }
+
+                return [
+                    'job_id' => $job->job_id,
+                    'site' => $job->site,
+                    'form_type' => $job->form_type,
+                    'nap_user' => $job->nap_user,
+                    'total' => $job->total,
+                    'success' => $job->success,
+                    'failed' => $job->failed,
+                    'status' => $job->status,
+                    'started_at' => $job->started_at?->format('H:i:s'),
+                    'finished_at' => $job->finished_at?->format('H:i:s'),
+                    'duration_seconds' => $duration,
+                ];
+            });
+
         return [
             'summary' => [
                 'total_jobs' => (int) ($summary->total_jobs ?? 0),
@@ -174,6 +200,7 @@ class DashboardController extends Controller
                 'avg_seconds_per_record' => round($avgPerRecord ?? 0, 1),
             ],
             'by_site' => $bySite,
+            'recent_jobs' => $recentJobs,
         ];
     }
 }

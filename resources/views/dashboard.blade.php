@@ -109,6 +109,30 @@
             </div>
         </div>
 
+        {{-- Job History --}}
+        <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Job History</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-gray-500 border-b">
+                            <th class="pb-2 font-medium">Site</th>
+                            <th class="pb-2 font-medium">Type</th>
+                            <th class="pb-2 font-medium">User</th>
+                            <th class="pb-2 font-medium text-right">Total</th>
+                            <th class="pb-2 font-medium text-right">Success</th>
+                            <th class="pb-2 font-medium text-right">Failed</th>
+                            <th class="pb-2 font-medium text-center">Status</th>
+                            <th class="pb-2 font-medium text-right">Start</th>
+                            <th class="pb-2 font-medium text-right">End</th>
+                            <th class="pb-2 font-medium text-right">Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobs-table"></tbody>
+                </table>
+            </div>
+        </div>
+
         {{-- Live Log --}}
         <div class="bg-gray-900 rounded-xl p-5">
             <div class="flex items-center justify-between mb-3">
@@ -377,6 +401,40 @@
                     </tr>
                 `;
             }).join('');
+
+            // Job history table
+            const jobsBody = document.getElementById('jobs-table');
+            if (stats.recent_jobs) {
+                jobsBody.innerHTML = stats.recent_jobs.map(j => {
+                    const statusColors = {
+                        completed: 'bg-green-100 text-green-700',
+                        failed: 'bg-red-100 text-red-700',
+                        pending: 'bg-gray-100 text-gray-500',
+                        running: 'bg-blue-100 text-blue-700',
+                    };
+                    const statusCls = statusColors[j.status] || 'bg-gray-100 text-gray-500';
+                    const dur = j.duration_seconds != null
+                        ? (j.duration_seconds >= 60 ? Math.floor(j.duration_seconds / 60) + 'm ' + (j.duration_seconds % 60) + 's' : j.duration_seconds + 's')
+                        : '-';
+                    const rate = j.total > 0 ? Math.round((j.success / j.total) * 100) : 0;
+                    const rateColor = rate >= 80 ? 'text-green-600' : rate >= 50 ? 'text-amber-600' : 'text-red-600';
+
+                    return `
+                        <tr class="border-b border-gray-50 hover:bg-gray-50">
+                            <td class="py-2 font-medium text-gray-900">${j.site}</td>
+                            <td class="py-2"><span class="px-2 py-0.5 rounded text-xs font-bold ${j.form_type === 'VCT' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}">${j.form_type}</span></td>
+                            <td class="py-2 text-gray-600 text-xs">${j.nap_user || '-'}</td>
+                            <td class="py-2 text-right text-gray-700">${j.total}</td>
+                            <td class="py-2 text-right text-green-600">${j.success}</td>
+                            <td class="py-2 text-right text-red-500">${j.failed}</td>
+                            <td class="py-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${statusCls}">${j.status}</span></td>
+                            <td class="py-2 text-right text-xs text-gray-500 font-mono">${j.started_at || '-'}</td>
+                            <td class="py-2 text-right text-xs text-gray-500 font-mono">${j.finished_at || '-'}</td>
+                            <td class="py-2 text-right text-xs font-medium ${rateColor}">${dur}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
         }
 
         // ============================================================
