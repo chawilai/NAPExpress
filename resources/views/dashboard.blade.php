@@ -235,6 +235,7 @@
                     badge.textContent = 'Idle';
                     content.innerHTML = '<div class="text-center py-6 text-gray-300 text-sm">No active job</div>';
                     el.className = 'bg-white rounded-xl border border-gray-200 p-5';
+                    workerData[i] = {};
                 } else {
                     const elapsed = w.elapsed_seconds || 0;
                     const progress = progressMap[w.job_id] || {};
