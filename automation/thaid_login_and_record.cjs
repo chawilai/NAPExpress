@@ -324,9 +324,16 @@ async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
     await page.goto(NAP_URLS.createRR, { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForLoadState('networkidle').catch(() => {});
 
-    // Check if redirected to login (session expired)
+    // If redirected to SSO, wait for auto-redirect back
     if (page.url().includes('iam.nhso.go.th')) {
-        throw new Error('Session expired — redirected to login');
+        console.log('[RR] Redirected to SSO — waiting for auto-redirect back...');
+        try {
+            await page.waitForURL(url => url.toString().includes('dmis.nhso.go.th'), { timeout: 30000 });
+            await page.waitForLoadState('networkidle').catch(() => {});
+            console.log('[RR] Auto-redirected back to NAP Plus');
+        } catch {
+            throw new Error('Session expired — redirected to login');
+        }
     }
 
     // Fill search: date + PID
@@ -1300,6 +1307,13 @@ async function run() {
             const formUrl = isVCT ? NAP_URLS.createVCT : NAP_URLS.createRR;
             await page.goto(formUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
             await page.waitForLoadState('networkidle').catch(() => {});
+
+            // Wait for SSO auto-redirect if needed
+            if (page.url().includes('iam.nhso.go.th')) {
+                log(jobId, 'SSO redirect on first load — waiting for auto-redirect back...');
+                await page.waitForURL(url => url.toString().includes('dmis.nhso.go.th'), { timeout: 30000 });
+                await page.waitForLoadState('networkidle').catch(() => {});
+            }
 
             const napHeader = await page.evaluate(() => {
                 const nameTds = document.querySelectorAll('table.userBar td.name');
