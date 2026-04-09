@@ -29,21 +29,16 @@
         </div>
 
         {{-- Workers --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div id="worker-0" class="bg-white rounded-xl border border-gray-200 p-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            @for ($i = 0; $i < 4; $i++)
+            <div id="worker-{{ $i }}" class="bg-white rounded-xl border border-gray-200 p-4">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Worker 1</h3>
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Worker {{ $i + 1 }}</h3>
                     <span class="worker-badge px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Idle</span>
                 </div>
-                <div class="worker-content text-center py-6 text-gray-300 text-sm">No active job</div>
+                <div class="worker-content text-center py-4 text-gray-300 text-xs">No active job</div>
             </div>
-            <div id="worker-1" class="bg-white rounded-xl border border-gray-200 p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Worker 2</h3>
-                    <span class="worker-badge px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Idle</span>
-                </div>
-                <div class="worker-content text-center py-6 text-gray-300 text-sm">No active job</div>
-            </div>
+            @endfor
         </div>
 
         {{-- Queue --}}
@@ -132,7 +127,7 @@
         // State
         let ably = null;
         let subscribedChannels = {};
-        let workerData = [{}, {}];
+        let workerData = [{}, {}, {}, {}];
         let progressMap = {}; // jobId → { index, total }
         let currentPeriod = 'today';
         let customFrom = '';

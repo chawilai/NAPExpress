@@ -105,7 +105,7 @@ class DashboardController extends Controller
             ];
         }
 
-        while (count($workers) < 2) {
+        while (count($workers) < 4) {
             $workers[] = ['status' => 'idle'];
         }
 
@@ -135,7 +135,7 @@ class DashboardController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function getStats(Carbon $startDate, Carbon $endDate): array
+    private function getStats(mixed $startDate, mixed $endDate): array
     {
         $filtered = AutonapRequest::query()
             ->whereBetween('created_at', [$startDate, $endDate]);
