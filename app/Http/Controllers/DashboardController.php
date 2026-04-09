@@ -48,6 +48,7 @@ class DashboardController extends Controller
         foreach ($locks as $lock) {
             $data = @unserialize($lock->value);
 
+            // Skip old format (string) or invalid data
             if (! is_array($data) || ! isset($data['job_id'])) {
                 continue;
             }
@@ -56,12 +57,21 @@ class DashboardController extends Controller
             $request = AutonapRequest::where('job_id', $data['job_id'])->first();
 
             $startedAt = $data['started_at'] ?? $request?->started_at?->toIso8601String();
-            $elapsedSeconds = $startedAt ? now()->diffInSeconds($startedAt) : 0;
+            $elapsedSeconds = 0;
+
+            if ($startedAt) {
+                try {
+                    $elapsedSeconds = max(0, now('Asia/Bangkok')->diffInSeconds($startedAt, false));
+                } catch (\Exception) {
+                    $elapsedSeconds = 0;
+                }
+            }
+
             $total = $data['total'] ?? $request?->total ?? 0;
 
             $workers[] = [
                 'job_id' => $data['job_id'],
-                'site' => $request?->site ?? '?',
+                'site' => $request?->site ?? $data['site'] ?? '?',
                 'form_type' => $data['form_type'] ?? $request?->form_type ?? '?',
                 'ably_channel' => $data['ably_channel'] ?? null,
                 'total' => $total,
