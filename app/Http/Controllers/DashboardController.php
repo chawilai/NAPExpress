@@ -185,6 +185,7 @@ class DashboardController extends Controller
                     'success' => $job->success,
                     'failed' => $job->failed,
                     'status' => $job->status,
+                    'date' => $job->started_at?->format('d/m') ?? $job->created_at?->format('d/m'),
                     'started_at' => $job->started_at?->format('H:i:s'),
                     'finished_at' => $job->finished_at?->format('H:i:s'),
                     'duration_seconds' => $duration,

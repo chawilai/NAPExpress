@@ -123,6 +123,7 @@
                             <th class="pb-2 font-medium text-right">Success</th>
                             <th class="pb-2 font-medium text-right">Failed</th>
                             <th class="pb-2 font-medium text-center">Status</th>
+                            <th class="pb-2 font-medium text-right">Date</th>
                             <th class="pb-2 font-medium text-right">Start</th>
                             <th class="pb-2 font-medium text-right">End</th>
                             <th class="pb-2 font-medium text-right">Duration</th>
@@ -428,6 +429,7 @@
                             <td class="py-2 text-right text-green-600">${j.success}</td>
                             <td class="py-2 text-right text-red-500">${j.failed}</td>
                             <td class="py-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${statusCls}">${j.status}</span></td>
+                            <td class="py-2 text-right text-xs text-gray-500">${j.date || '-'}</td>
                             <td class="py-2 text-right text-xs text-gray-500 font-mono">${j.started_at || '-'}</td>
                             <td class="py-2 text-right text-xs text-gray-500 font-mono">${j.finished_at || '-'}</td>
                             <td class="py-2 text-right text-xs font-medium ${rateColor}">${dur}</td>
