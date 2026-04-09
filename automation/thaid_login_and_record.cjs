@@ -1191,7 +1191,7 @@ async function lookupExistingResult(page, labCode) {
 async function run() {
     const { jobId, dataFile } = parseArgs();
     const jobData = readDataFile(dataFile);
-    const { ablyKey, ablyChannel, items, callbackUrl, dryRun, formType } = jobData;
+    const { ablyKey, ablyChannel, items, callbackUrl, dryRun, formType, staffName: jobStaffName } = jobData;
 
     const { callbackUrl: cbUrl, fy: jobFy } = jobData;
     const ably = createAblyPublisher(ablyKey, ablyChannel);
@@ -1228,6 +1228,9 @@ async function run() {
     const results = [];
     let napDisplayName = '';
     let napSiteName = '';
+    // cbStaff = CAREMAT login user → nap_staff in callbacks
+    // napDisplayName = NAP header name → email report only
+    const cbStaff = jobStaffName || '';
 
     try {
         // Login via ThaiID (headed)
@@ -1417,9 +1420,9 @@ async function run() {
                                             // Send all 3 callbacks with existing data
                                             if (!isDryRun && cbUrl) {
                                                 const comment = 'VCT,Lab,Result ครบ ดึงค่าเดิม';
-                                                await sendCallback(cbUrl, { ...buildVctCallback(item, jobFy, vctCode, napDisplayName), nap_comment: comment });
-                                                await sendCallback(cbUrl, { ...buildLabCallback(item, jobFy, labCode, napDisplayName), nap_comment: comment });
-                                                await sendCallback(cbUrl, { ...buildResultCallback(item, jobFy, existingResult.result, napDisplayName), nap_comment: comment });
+                                                await sendCallback(cbUrl, { ...buildVctCallback(item, jobFy, vctCode, cbStaff), nap_comment: comment });
+                                                await sendCallback(cbUrl, { ...buildLabCallback(item, jobFy, labCode, cbStaff), nap_comment: comment });
+                                                await sendCallback(cbUrl, { ...buildResultCallback(item, jobFy, existingResult.result, cbStaff), nap_comment: comment });
                                             }
                                             // Skip further steps for this record
                                             results.push({
@@ -1467,7 +1470,7 @@ async function run() {
                             message: `${vctLabel} (${i + 1}/${total}) | PID: ${pidMasked} | VCT: ${vctCode}`,
                         }, 300);
                         if (cbUrl) {
-                            const cb = buildVctCallback(item, jobFy, vctCode, napDisplayName);
+                            const cb = buildVctCallback(item, jobFy, vctCode, cbStaff);
                             if (vctComment) cb.nap_comment = vctComment;
                             await sendCallback(cbUrl, cb);
                         }
@@ -1475,7 +1478,7 @@ async function run() {
                         // If lab code from lookup, send Lab callback too
                         if (fromLookup && labCode && cbUrl) {
                             log(jobId, `  Record ${i + 1}: Lab=${labCode} — sending Lab callback (lookup)`);
-                            const labCb = buildLabCallback(item, jobFy, labCode, napDisplayName);
+                            const labCb = buildLabCallback(item, jobFy, labCode, cbStaff);
                             labCb.nap_comment = 'VCT, Lab ซ้ำ — ดึงค่าเดิม';
                             await sendCallback(cbUrl, labCb);
                             await ably?.publish('job:record:success', {
@@ -1505,7 +1508,7 @@ async function run() {
                                     jobId, index: i + 1, total, labCode, uic, pidMasked,
                                     message: `✅ Lab สำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | ANTIHIV: ${labCode}`,
                                 }, 300);
-                                await sendCallback(cbUrl, buildLabCallback(item, jobFy, labCode, napDisplayName));
+                                await sendCallback(cbUrl, buildLabCallback(item, jobFy, labCode, cbStaff));
                             }
 
                         } catch (labErr) {
@@ -1538,7 +1541,7 @@ async function run() {
                                     jobId, index: i + 1, total, uic, pidMasked,
                                     message: `✅ ลงผลสำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | ผล: ${item.hiv_result}`,
                                 }, 300);
-                                await sendCallback(cbUrl, buildResultCallback(item, jobFy, item.hiv_result, napDisplayName));
+                                await sendCallback(cbUrl, buildResultCallback(item, jobFy, item.hiv_result, cbStaff));
                             }
                         } catch (resultErr) {
                             log(jobId, `  Record ${i + 1}: Result error = ${resultErr.message}`);
@@ -1653,7 +1656,7 @@ async function run() {
         try { await loginBrowser.close(); } catch {}
     }
 
-    await writeResults(dataFile, results, { napDisplayName, napSiteName });
+    await writeResults(dataFile, results, { napDisplayName, napSiteName, staffName: cbStaff });
 }
 
 async function writeResults(dataFile, results, meta = {}) {

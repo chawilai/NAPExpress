@@ -39,6 +39,7 @@ class ProcessAutoNapJob implements ShouldQueue
         public string $method = 'ThaiID',
         public bool $dryRun = false,
         public string $formType = 'RR',
+        public string $staffName = '',
     ) {}
 
     public function handle(): void
@@ -72,6 +73,7 @@ class ProcessAutoNapJob implements ShouldQueue
             'formType' => $this->formType,
             'callbackUrl' => $this->callbackUrl,
             'fy' => $this->fy,
+            'staffName' => $this->staffName,
         ], JSON_UNESCAPED_UNICODE));
 
         $process = new Process([
@@ -138,7 +140,7 @@ class ProcessAutoNapJob implements ShouldQueue
                         $error,
                         $napLabCode,
                         $this->formType,
-                        $napDisplayName,
+                        $this->staffName ?: $napDisplayName,
                     ),
                     $this->callbackUrl,
                 );

@@ -33,6 +33,7 @@ class AutoNapJobController extends Controller
             'dry_run' => ['nullable', 'boolean'],
             'nap_username' => ['nullable', 'string'],
             'nap_password' => ['nullable', 'string'],
+            'staff_name' => ['nullable', 'string'],
             'callback_url' => ['required', 'url'],
             'ably_channel' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1', 'max:50'],
@@ -114,6 +115,8 @@ class AutoNapJobController extends Controller
         // Store full request as JSON log file for audit/debugging
         $this->storeRequestLog($jobId, $formType, $validated, $items);
 
+        $staffName = $validated['staff_name'] ?? '';
+
         ProcessAutoNapJob::dispatch(
             jobId: $jobId,
             site: $validated['site'],
@@ -128,6 +131,7 @@ class AutoNapJobController extends Controller
             method: $method,
             dryRun: (bool) ($validated['dry_run'] ?? false),
             formType: $formType,
+            staffName: $staffName,
         );
 
         // Check queue depth and estimate wait time
