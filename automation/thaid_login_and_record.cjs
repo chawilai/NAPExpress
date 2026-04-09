@@ -1334,6 +1334,10 @@ async function run() {
         }
 
         // Process records
+        let crashRetries = 0;
+        let lastCrashIndex = -1;
+        const MAX_CRASH_RETRIES = 2; // max retries per record on browser crash
+
         for (let i = 0; i < (items || []).length; i++) {
             // Restart browser every BATCH_SIZE records to prevent memory leak
             if (i > 0 && i % BATCH_SIZE === 0) {
@@ -1640,6 +1644,23 @@ async function run() {
                     }
                 }
             } catch (err) {
+                const isBrowserCrash = err.message?.includes('Target page') || err.message?.includes('browser has been closed');
+
+                if (isBrowserCrash && crashRetries < MAX_CRASH_RETRIES) {
+                    // Browser crashed — restart and retry this record (reset counter on next record)
+                    crashRetries++;
+                    log(jobId, `  Record ${i + 1} browser crash (retry ${crashRetries}/${MAX_CRASH_RETRIES}) — restarting...`);
+                    await ably?.publish('job:preparing', {
+                        jobId, total,
+                        message: `🔄 เบราว์เซอร์ขัดข้อง — กำลังรีสตาร์ท... (${i + 1}/${total})`,
+                    }, 500);
+                    try { await workBrowser.close(); } catch {}
+                    ({ browser: workBrowser, page } = await createWorkBrowser());
+                    log(jobId, 'Browser restarted for recovery');
+                    i--; // retry this record
+                    continue;
+                }
+
                 log(jobId, `  Record ${i + 1} error: ${err.message}`);
                 results.push({ id_card: item.id_card, uic, success: false, nap_code: null, nap_lab_code: null, error: err.message });
                 await ably?.publish('job:record:failed', {
