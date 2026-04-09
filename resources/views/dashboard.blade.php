@@ -52,15 +52,32 @@
             <div id="queue-content"></div>
         </div>
 
+        {{-- Period Filter --}}
+        <div class="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-sm text-gray-500 mr-1">Period:</span>
+                <button onclick="setPeriod('today')" data-period="today" class="period-btn px-3 py-1.5 rounded-lg text-sm font-medium bg-teal-600 text-white">Today</button>
+                <button onclick="setPeriod('yesterday')" data-period="yesterday" class="period-btn px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">Yesterday</button>
+                <button onclick="setPeriod('week')" data-period="week" class="period-btn px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">This Week</button>
+                <button onclick="setPeriod('month')" data-period="month" class="period-btn px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">This Month</button>
+                <button onclick="setPeriod('all')" data-period="all" class="period-btn px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">All</button>
+                <span class="text-gray-300 mx-1">|</span>
+                <input type="date" id="date-from" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-600" onchange="setCustomPeriod()">
+                <span class="text-gray-400 text-sm">to</span>
+                <input type="date" id="date-to" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-600" onchange="setCustomPeriod()">
+                <span id="date-range-label" class="text-xs text-gray-400 ml-2"></span>
+            </div>
+        </div>
+
         {{-- Stats --}}
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
             <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
                 <div id="stat-jobs" class="text-2xl font-bold text-gray-800">-</div>
-                <div class="text-xs text-gray-500 mt-1">Total Jobs</div>
+                <div class="text-xs text-gray-500 mt-1">Jobs</div>
             </div>
             <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
                 <div id="stat-records" class="text-2xl font-bold text-gray-800">-</div>
-                <div class="text-xs text-gray-500 mt-1">Total Records</div>
+                <div class="text-xs text-gray-500 mt-1">Records</div>
             </div>
             <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
                 <div id="stat-success" class="text-2xl font-bold text-green-600">-</div>
@@ -73,29 +90,6 @@
             <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
                 <div id="stat-avg" class="text-2xl font-bold text-teal-600">-</div>
                 <div class="text-xs text-gray-500 mt-1">Avg sec/record</div>
-            </div>
-        </div>
-
-        {{-- Today --}}
-        <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Today</h3>
-            <div class="grid grid-cols-4 gap-4 text-center">
-                <div>
-                    <span id="today-jobs" class="text-xl font-bold text-gray-800">-</span>
-                    <div class="text-xs text-gray-500">Jobs</div>
-                </div>
-                <div>
-                    <span id="today-records" class="text-xl font-bold text-gray-800">-</span>
-                    <div class="text-xs text-gray-500">Records</div>
-                </div>
-                <div>
-                    <span id="today-success" class="text-xl font-bold text-green-600">-</span>
-                    <div class="text-xs text-gray-500">Success</div>
-                </div>
-                <div>
-                    <span id="today-failed" class="text-xl font-bold text-red-500">-</span>
-                    <div class="text-xs text-gray-500">Failed</div>
-                </div>
             </div>
         </div>
 
@@ -140,6 +134,31 @@
         let subscribedChannels = {};
         let workerData = [{}, {}];
         let progressMap = {}; // jobId → { index, total }
+        let currentPeriod = 'today';
+        let customFrom = '';
+        let customTo = '';
+
+        function setPeriod(period) {
+            currentPeriod = period;
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.className = btn.dataset.period === period
+                    ? 'period-btn px-3 py-1.5 rounded-lg text-sm font-medium bg-teal-600 text-white'
+                    : 'period-btn px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200';
+            });
+            fetchDashboard();
+        }
+
+        function setCustomPeriod() {
+            customFrom = document.getElementById('date-from').value;
+            customTo = document.getElementById('date-to').value;
+            if (customFrom) {
+                currentPeriod = 'custom';
+                document.querySelectorAll('.period-btn').forEach(btn => {
+                    btn.className = 'period-btn px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200';
+                });
+                fetchDashboard();
+            }
+        }
 
         // ============================================================
         // Clock
@@ -202,8 +221,18 @@
         // ============================================================
         async function fetchDashboard() {
             try {
-                const res = await fetch(API_URL);
+                let url = `${API_URL}?period=${currentPeriod}`;
+                if (currentPeriod === 'custom') {
+                    if (customFrom) url += `&from=${customFrom}`;
+                    if (customTo) url += `&to=${customTo}`;
+                }
+                const res = await fetch(url);
                 const data = await res.json();
+
+                // Update date range label
+                if (data.date_range) {
+                    document.getElementById('date-range-label').textContent = `${data.date_range.from} — ${data.date_range.to}`;
+                }
                 renderWorkers(data.workers);
                 renderQueue(data.queue);
                 renderStats(data.stats);
@@ -329,18 +358,12 @@
         // Render Stats
         // ============================================================
         function renderStats(stats) {
-            const o = stats.overall;
+            const o = stats.summary;
             document.getElementById('stat-jobs').textContent = o.total_jobs.toLocaleString();
             document.getElementById('stat-records').textContent = o.total_records.toLocaleString();
             document.getElementById('stat-success').textContent = o.total_success.toLocaleString();
             document.getElementById('stat-failed').textContent = o.total_failed.toLocaleString();
             document.getElementById('stat-avg').textContent = o.avg_seconds_per_record || '-';
-
-            const t = stats.today;
-            document.getElementById('today-jobs').textContent = t.jobs;
-            document.getElementById('today-records').textContent = t.records;
-            document.getElementById('today-success').textContent = t.success;
-            document.getElementById('today-failed').textContent = t.failed;
 
             // Site table
             const tbody = document.getElementById('site-table');

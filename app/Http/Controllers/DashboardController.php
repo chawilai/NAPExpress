@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\AutonapRequest;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -12,34 +13,59 @@ class DashboardController extends Controller
 {
     public function index(): View
     {
-        $ablyKey = config('services.ably.key', '');
-
-        // For client-side Ably, use subscribe-only key (strip publish capability)
-        // Format: appId.keyId:keySecret → we pass the full key, Ably JS handles it
         return view('dashboard', [
-            'ablyKey' => $ablyKey,
+            'ablyKey' => config('services.ably.key', ''),
         ]);
     }
 
-    public function api(): JsonResponse
+    public function api(Request $request): JsonResponse
     {
+        $period = $request->input('period', 'today');
+        $from = $request->input('from');
+        $to = $request->input('to');
+
+        [$startDate, $endDate] = $this->resolveDateRange($period, $from, $to);
+
         return response()->json([
             'workers' => $this->getWorkers(),
             'queue' => $this->getQueue(),
-            'stats' => $this->getStats(),
+            'stats' => $this->getStats($startDate, $endDate),
+            'period' => $period,
+            'date_range' => [
+                'from' => $startDate->format('Y-m-d'),
+                'to' => $endDate->format('Y-m-d'),
+            ],
         ]);
     }
 
     /**
-     * Get active workers — running jobs from cache locks.
-     *
+     * @return array{Carbon, Carbon}
+     */
+    private function resolveDateRange(string $period, ?string $from, ?string $to): array
+    {
+        $tz = 'Asia/Bangkok';
+
+        return match ($period) {
+            'today' => [now($tz)->startOfDay(), now($tz)->endOfDay()],
+            'yesterday' => [now($tz)->subDay()->startOfDay(), now($tz)->subDay()->endOfDay()],
+            'week' => [now($tz)->startOfWeek(), now($tz)->endOfDay()],
+            'month' => [now($tz)->startOfMonth(), now($tz)->endOfDay()],
+            'all' => [Carbon::parse('2026-01-01', $tz), now($tz)->endOfDay()],
+            'custom' => [
+                $from ? Carbon::parse($from, $tz)->startOfDay() : now($tz)->startOfDay(),
+                $to ? Carbon::parse($to, $tz)->endOfDay() : now($tz)->endOfDay(),
+            ],
+            default => [now($tz)->startOfDay(), now($tz)->endOfDay()],
+        };
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     private function getWorkers(): array
     {
         $workers = [];
 
-        // Find all active autonap cache locks
         $locks = DB::table('cache')
             ->where('key', 'like', '%autonap:%')
             ->where('key', 'not like', '%cache_lock%')
@@ -48,12 +74,10 @@ class DashboardController extends Controller
         foreach ($locks as $lock) {
             $data = @unserialize($lock->value);
 
-            // Skip old format (string) or invalid data
             if (! is_array($data) || ! isset($data['job_id'])) {
                 continue;
             }
 
-            // Get progress from autonap_requests table
             $request = AutonapRequest::where('job_id', $data['job_id'])->first();
 
             $startedAt = $data['started_at'] ?? $request?->started_at?->toIso8601String();
@@ -81,7 +105,6 @@ class DashboardController extends Controller
             ];
         }
 
-        // Pad to show 2 worker slots
         while (count($workers) < 2) {
             $workers[] = ['status' => 'idle'];
         }
@@ -95,8 +118,11 @@ class DashboardController extends Controller
     private function getQueue(): array
     {
         $pendingJobs = DB::table('jobs')->count();
-        $activeWorkers = count(array_filter($this->getWorkers(), fn ($w) => $w['status'] === 'active'));
-        $waiting = max(0, $pendingJobs - $activeWorkers);
+        $activeLocks = DB::table('cache')
+            ->where('key', 'like', '%autonap:%')
+            ->where('key', 'not like', '%cache_lock%')
+            ->count();
+        $waiting = max(0, $pendingJobs - $activeLocks);
 
         $pendingRequests = AutonapRequest::where('status', 'pending')->get(['job_id', 'site', 'form_type', 'total']);
 
@@ -109,16 +135,19 @@ class DashboardController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function getStats(): array
+    private function getStats(Carbon $startDate, Carbon $endDate): array
     {
-        $overall = AutonapRequest::query()
+        $filtered = AutonapRequest::query()
+            ->whereBetween('created_at', [$startDate, $endDate]);
+
+        $summary = (clone $filtered)
             ->selectRaw('COUNT(*) as total_jobs')
             ->selectRaw('SUM(total) as total_records')
             ->selectRaw('SUM(success) as total_success')
             ->selectRaw('SUM(failed) as total_failed')
             ->first();
 
-        $bySite = AutonapRequest::query()
+        $bySite = (clone $filtered)
             ->select('site', 'form_type')
             ->selectRaw('COUNT(*) as jobs')
             ->selectRaw('SUM(total) as records')
@@ -128,15 +157,8 @@ class DashboardController extends Controller
             ->orderByDesc('jobs')
             ->get();
 
-        $today = AutonapRequest::query()
-            ->whereDate('created_at', today())
-            ->selectRaw('COUNT(*) as jobs')
-            ->selectRaw('SUM(total) as records')
-            ->selectRaw('SUM(success) as success')
-            ->selectRaw('SUM(failed) as failed')
-            ->first();
-
-        $avgPerRecord = AutonapRequest::where('status', 'completed')
+        $avgPerRecord = (clone $filtered)
+            ->where('status', 'completed')
             ->where('total', '>', 0)
             ->whereNotNull('started_at')
             ->whereNotNull('finished_at')
@@ -144,18 +166,12 @@ class DashboardController extends Controller
             ->value('avg');
 
         return [
-            'overall' => [
-                'total_jobs' => (int) ($overall->total_jobs ?? 0),
-                'total_records' => (int) ($overall->total_records ?? 0),
-                'total_success' => (int) ($overall->total_success ?? 0),
-                'total_failed' => (int) ($overall->total_failed ?? 0),
+            'summary' => [
+                'total_jobs' => (int) ($summary->total_jobs ?? 0),
+                'total_records' => (int) ($summary->total_records ?? 0),
+                'total_success' => (int) ($summary->total_success ?? 0),
+                'total_failed' => (int) ($summary->total_failed ?? 0),
                 'avg_seconds_per_record' => round($avgPerRecord ?? 0, 1),
-            ],
-            'today' => [
-                'jobs' => (int) ($today->jobs ?? 0),
-                'records' => (int) ($today->records ?? 0),
-                'success' => (int) ($today->success ?? 0),
-                'failed' => (int) ($today->failed ?? 0),
             ],
             'by_site' => $bySite,
         ];
