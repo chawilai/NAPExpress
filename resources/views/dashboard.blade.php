@@ -254,7 +254,7 @@
                 const badge = el.querySelector('.worker-badge');
                 const content = el.querySelector('.worker-content');
 
-                if (w.status === 'idle') {
+                if (w.status !== 'active' || !w.job_id) {
                     badge.className = 'worker-badge px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500';
                     badge.textContent = 'Idle';
                     content.innerHTML = '<div class="text-center py-6 text-gray-300 text-sm">No active job</div>';
