@@ -1,0 +1,7 @@
+﻿source_id,id_card,uic,full_name,phone,kp,cbs,service_date,occupation,location,request_lab,test_type,specimen_type,lab_code,provider_hcode,test_date,lab_status,result,result_text,remarks
+V001,="1129902021341",อส190350,สมชาย รักดี,="0812345678",MSM,สุรศักดิ์,2026-04-03,พนักงานบริษัท,DIC,true,HIV,blood,ANTIHIV-41692-6904-0001,="41936",2026-04-04,1,2,Negative,ส่งผลให้ผู้รับบริการแล้ว
+V002,="1100800556789",MSM120592,นายเอ บีซี,="0898765432",MSM,สุรศักดิ์,2026-04-03,รับจ้าง,Outreach,true,HIV,blood,ANTIHIV-41692-6904-0002,="41936",2026-04-04,1,2,Negative,
+V003,="3100700999888",TG050689,น้องแป้ง สวยใส,="0611122233",TG,ฟ้า,2026-04-04,ค้าขาย,Clinic,true,HIV,oral,ANTIHIV-41692-6904-0003,="41936",2026-04-05,1,1,Positive,ส่งต่อ ART clinic
+V004,="1550700111222",FSW081190,เจ้าหน้าที่ทดสอบ,="0677788899",FSW,พลอย,2026-04-04,รับจ้าง,Outreach,false,,,,,,,,,ปฏิเสธ lab — counseling only
+V005,="1100600333444",PWID231084,คุณชาย ทดสอบ,="0822334455",PWID,ต่อ,2026-04-05,ว่างงาน,DIC,true,HIV,blood,ANTIHIV-41692-6904-0005,="41936",2026-04-06,1,3,Inconclusive,นัดตรวจซ้ำ 2 สัปดาห์
+V006,="1100500778899",MSM110787,สมศักดิ์ ใจดี,="0844455566",MSM,สุรศักดิ์,2026-04-05,นักศึกษา,DIC,true,HIV,blood,ANTIHIV-41692-6904-0006,="41936",,,,,ส่งตรวจแล้ว รอผล
