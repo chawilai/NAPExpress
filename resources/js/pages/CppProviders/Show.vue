@@ -248,6 +248,14 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                             <Badge v-if="provider.registration_type" variant="outline" class="text-xs">
                                 {{ provider.registration_type }}
                             </Badge>
+                            <Badge
+                                v-for="nt in provider.network_types"
+                                :key="`top-${nt.id}`"
+                                class="border-teal-300 bg-teal-50 font-mono text-xs text-teal-700 dark:border-teal-800 dark:bg-teal-950/30 dark:text-teal-400"
+                                variant="outline"
+                            >
+                                {{ nt.type_code }}
+                            </Badge>
                         </div>
                     </div>
                     <Button as-child variant="outline" size="sm">
