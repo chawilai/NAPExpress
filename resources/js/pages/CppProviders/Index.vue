@@ -13,20 +13,14 @@ import {
     X,
     ExternalLink,
 } from 'lucide-vue-next';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import SearchableSelect from '@/components/SearchableSelect.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 
@@ -98,6 +92,40 @@ const typeCode = ref(props.filters.type_code ?? '');
 const hasEmail = ref(!!props.filters.has_email);
 const hasCoordinator = ref(!!props.filters.has_coordinator);
 const hivOnly = ref(!!props.filters.hiv_only);
+
+// Options for searchable selects
+const provinceOptions = computed(() =>
+    Object.entries(props.facets.provinces ?? {}).map(([name, count]) => ({
+        value: name,
+        label: `${name} (${count})`,
+    }))
+);
+
+const affiliationOptions = computed(() =>
+    Object.entries(props.facets.affiliations ?? {}).map(([name, count]) => ({
+        value: name,
+        label: `${name} (${count})`,
+    }))
+);
+
+const typeCodeOptions = computed(() =>
+    (props.facets.type_codes ?? []).map((t) => ({
+        value: t.code,
+        label: `[${t.code}] ${(t.name ?? '').substring(0, 60)} (${t.count})`,
+        sublabel: t.name && t.name.length > 60 ? t.name : undefined,
+    }))
+);
+
+const hasActiveFilter = computed(
+    () =>
+        !!q.value ||
+        !!province.value ||
+        !!affiliation.value ||
+        !!typeCode.value ||
+        hasEmail.value ||
+        hasCoordinator.value ||
+        hivOnly.value
+);
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -203,42 +231,30 @@ function affiliationColor(a: string | null): string {
 
                         <!-- Province -->
                         <div>
-                            <Label class="mb-1 text-xs">จังหวัด</Label>
-                            <Select v-model="province">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="ทุกจังหวัด" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value=" ">ทุกจังหวัด</SelectItem>
-                                    <SelectItem
-                                        v-for="(count, pv) in facets.provinces"
-                                        :key="pv"
-                                        :value="String(pv)"
-                                    >
-                                        {{ pv }} ({{ count }})
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Label class="mb-1 text-xs">
+                                จังหวัด
+                                <span class="text-slate-400">({{ provinceOptions.length }})</span>
+                            </Label>
+                            <SearchableSelect
+                                v-model="province"
+                                :options="provinceOptions"
+                                placeholder="ทุกจังหวัด"
+                                search-placeholder="พิมพ์ค้นหาจังหวัด..."
+                            />
                         </div>
 
                         <!-- Affiliation -->
                         <div>
-                            <Label class="mb-1 text-xs">สังกัด</Label>
-                            <Select v-model="affiliation">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="ทุกสังกัด" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value=" ">ทุกสังกัด</SelectItem>
-                                    <SelectItem
-                                        v-for="(count, af) in facets.affiliations"
-                                        :key="af"
-                                        :value="String(af)"
-                                    >
-                                        {{ af }} ({{ count }})
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Label class="mb-1 text-xs">
+                                สังกัด
+                                <span class="text-slate-400">({{ affiliationOptions.length }})</span>
+                            </Label>
+                            <SearchableSelect
+                                v-model="affiliation"
+                                :options="affiliationOptions"
+                                placeholder="ทุกสังกัด"
+                                search-placeholder="พิมพ์ค้นหาสังกัด..."
+                            />
                         </div>
                     </div>
 
@@ -247,23 +263,14 @@ function affiliationColor(a: string | null): string {
                         <div class="md:col-span-2">
                             <Label class="mb-1 text-xs">
                                 ประเภทหน่วยบริการ
-                                <span class="text-slate-400">({{ facets.type_codes?.length ?? 0 }})</span>
+                                <span class="text-slate-400">({{ typeCodeOptions.length }})</span>
                             </Label>
-                            <Select v-model="typeCode">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="ทุกประเภท" />
-                                </SelectTrigger>
-                                <SelectContent class="max-h-80">
-                                    <SelectItem value=" ">ทุกประเภท</SelectItem>
-                                    <SelectItem
-                                        v-for="t in (facets.type_codes ?? [])"
-                                        :key="t.code"
-                                        :value="t.code"
-                                    >
-                                        [{{ t.code }}] {{ (t.name ?? '').substring(0, 50) }} ({{ t.count }})
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <SearchableSelect
+                                v-model="typeCode"
+                                :options="typeCodeOptions"
+                                placeholder="ทุกประเภท"
+                                search-placeholder="พิมพ์ค้นหา เช่น HIV, เวชกรรม..."
+                            />
                         </div>
 
                         <!-- Checkboxes -->
@@ -292,13 +299,29 @@ function affiliationColor(a: string | null): string {
                         </div>
                     </div>
 
-                    <div class="mt-3 flex items-center justify-between">
-                        <div class="text-xs text-slate-500">
-                            <span v-if="q || province || affiliation || typeCode || hasEmail || hasCoordinator || hivOnly">
-                                <Badge variant="outline">Filter active</Badge>
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex flex-wrap items-center gap-2 text-sm">
+                            <Badge
+                                v-if="hasActiveFilter"
+                                class="border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-400"
+                                variant="outline"
+                            >
+                                <Filter class="mr-1 h-3 w-3" />
+                                Filter active
+                            </Badge>
+                            <span class="font-medium text-slate-700 dark:text-slate-300">
+                                พบ <span class="text-lg font-bold text-teal-600 dark:text-teal-400">{{ providers.total.toLocaleString() }}</span>
+                                <span class="text-slate-500">
+                                    จาก {{ totals.all.toLocaleString() }} หน่วยบริการ
+                                </span>
                             </span>
                         </div>
-                        <Button variant="ghost" size="sm" @click="resetFilters">
+                        <Button
+                            v-if="hasActiveFilter"
+                            variant="ghost"
+                            size="sm"
+                            @click="resetFilters"
+                        >
                             <X class="mr-1 h-4 w-4" />
                             ล้างตัวกรอง
                         </Button>
