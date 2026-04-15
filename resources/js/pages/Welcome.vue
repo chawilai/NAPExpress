@@ -87,11 +87,12 @@ const features = [
         color: 'text-teal-500',
     },
     {
-        title: 'Login ผ่าน ThaiID',
+        title: 'Login ผ่าน ThaID',
         description:
-            'ไม่ต้องฝาก password ไว้กับเรา ผู้ใช้ยืนยันตัวตนและอนุญาตทุกครั้งด้วยระบบของรัฐ',
+            'ไม่ต้องฝาก password ไว้กับเรา ผู้ใช้ยืนยันตัวตนและอนุญาตทุกครั้งผ่านแอป ThaID ของกรมการปกครอง',
         icon: Shield,
         color: 'text-blue-500',
+        logo: '/assets/thaid-logo.webp',
     },
     {
         title: 'Real-time Dashboard',
@@ -421,13 +422,21 @@ const stats = [
                             class="relative overflow-hidden border-slate-200 transition-all hover:border-teal-400 hover:shadow-lg dark:border-slate-800 dark:hover:border-teal-700"
                         >
                             <CardHeader>
-                                <div
-                                    :class="[
-                                        feature.color,
-                                        'mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-900',
-                                    ]"
-                                >
-                                    <component :is="feature.icon" class="h-6 w-6" />
+                                <div class="mb-4 flex items-center gap-3">
+                                    <div
+                                        :class="[
+                                            feature.color,
+                                            'flex h-12 w-12 items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-900',
+                                        ]"
+                                    >
+                                        <component :is="feature.icon" class="h-6 w-6" />
+                                    </div>
+                                    <img
+                                        v-if="feature.logo"
+                                        :src="feature.logo"
+                                        :alt="feature.title"
+                                        class="h-12 w-12 rounded-lg object-contain"
+                                    />
                                 </div>
                                 <CardTitle class="text-xl font-bold">{{ feature.title }}</CardTitle>
                             </CardHeader>
@@ -651,7 +660,7 @@ const stats = [
                             </h3>
                             <p class="text-slate-600 dark:text-slate-400">
                                 AutoNAP เป็น Robotic Process Automation (RPA) แบบเดียวกับที่ธนาคารและบริษัทบัญชีใช้
-                                ระบบทำงานเป็น "ผู้ช่วยเสมือน" ของเจ้าหน้าที่ — Login ผ่าน ThaiID ของผู้ใช้เอง หรือ credentials ของคลินิก
+                                ระบบทำงานเป็น "ผู้ช่วยเสมือน" ของเจ้าหน้าที่ — Login ผ่าน ThaID ของผู้ใช้เอง หรือ credentials ของคลินิก
                                 แล้วกรอกฟอร์มในสิ่งที่เจ้าหน้าที่ทำเองได้อยู่แล้ว เพียงแต่ทำเร็วและต่อเนื่องกว่า
                             </p>
                         </div>

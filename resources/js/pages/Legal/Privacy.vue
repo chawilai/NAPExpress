@@ -5,7 +5,7 @@ const toc = [
     { id: 'summary', label: 'สรุปสั้น' },
     { id: 'about', label: '1. ข้อมูลของเรา' },
     { id: 'data-we-collect', label: '2. ข้อมูลที่เราเก็บ' },
-    { id: 'thaid', label: '3. Login ผ่าน ThaiID' },
+    { id: 'thaid', label: '3. Login ผ่าน ThaID' },
     { id: 'purpose', label: '4. วัตถุประสงค์' },
     { id: 'never', label: '5. เราไม่ทำอะไร' },
     { id: 'sharing', label: '6. การแชร์ข้อมูล' },
@@ -159,13 +159,13 @@ const toc = [
             <p><strong>ระยะเวลาเก็บ:</strong> ตลอดระยะเวลาสัญญา + 5 ปี ตามกฎหมายภาษี</p>
         </section>
 
-        <!-- 3. ThaiID -->
+        <!-- 3. ThaID -->
         <section id="thaid">
-            <h2>3. Login ผ่าน ThaiID</h2>
+            <h2>3. Login ผ่าน ThaID</h2>
 
             <h3>3.1 อย่างไร</h3>
             <p>
-                AutoNAP รองรับการ login เข้าระบบ NAP Plus ผ่าน <strong>ThaiID</strong>
+                AutoNAP รองรับการ login เข้าระบบ NAP Plus ผ่าน <strong>ThaID</strong>
                 ซึ่งเป็นระบบยืนยันตัวตนอย่างเป็นทางการของรัฐ
             </p>
 
@@ -179,9 +179,9 @@ const toc = [
 
             <h3>3.3 AutoNAP ไม่ทำ</h3>
             <ul>
-                <li>❌ ไม่เก็บ ThaiID credentials</li>
-                <li>❌ ไม่ดึงข้อมูลส่วนตัวจาก ThaiID นอกจากที่จำเป็นต่อการ login</li>
-                <li>❌ ไม่ใช้ ThaiID เพื่อวัตถุประสงค์อื่น</li>
+                <li>❌ ไม่เก็บ ThaID credentials</li>
+                <li>❌ ไม่ดึงข้อมูลส่วนตัวจาก ThaID นอกจากที่จำเป็นต่อการ login</li>
+                <li>❌ ไม่ใช้ ThaID เพื่อวัตถุประสงค์อื่น</li>
             </ul>
         </section>
 
