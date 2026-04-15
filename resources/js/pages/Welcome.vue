@@ -532,6 +532,12 @@ const stats = [
                         <p class="mt-4 text-lg text-slate-600 dark:text-slate-400">
                             ราคาพิเศษสำหรับ 50 ศูนย์แรก — ปิดรับ 31 ก.ค. 2569
                         </p>
+                        <div class="mt-6 inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-4 py-2 text-sm text-teal-700 dark:border-teal-900 dark:bg-teal-950/20 dark:text-teal-400">
+                            <CheckCircle2 class="h-4 w-4" />
+                            <span>
+                                <strong>1 เคส = 1 ผู้รับบริการ</strong> บันทึก form ไหนก็ได้ (RR / VCT / Lab / Result / PrEP) ไม่คิดเพิ่ม
+                            </span>
+                        </div>
                     </div>
 
                     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -565,7 +571,10 @@ const stats = [
                                     </div>
                                 </div>
                                 <div class="mt-2 text-sm font-medium text-slate-600 dark:text-slate-400">
-                                    📊 {{ tier.quota }}
+                                    👥 {{ tier.quota }}
+                                </div>
+                                <div class="mt-1 text-xs text-slate-500 dark:text-slate-500">
+                                    บันทึก form ได้ไม่จำกัดต่อเคส
                                 </div>
                             </CardHeader>
                             <CardContent class="flex flex-1 flex-col">
@@ -592,6 +601,7 @@ const stats = [
 
                     <p class="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
                         💡 จ่ายล่วงหน้า 3 เดือน = ฟรี 1 เดือน • 12 เดือน = ฟรี 3 เดือน<br />
+                        🎁 <strong>ไม่จำกัด form</strong> — บันทึก RR, VCT, Lab, Result ต่อเคสเดิมได้ไม่คิดเพิ่ม<br />
                         📞 สำหรับเครือข่ายหลายสาขา / รพ. ติดต่อเพื่อขอราคาพิเศษ
                     </p>
                 </div>
@@ -653,6 +663,19 @@ const stats = [
                                 <strong>ปลอดภัยมาก เพราะเราไม่เก็บข้อมูลผู้ป่วยเลย</strong> —
                                 CSV ที่คุณ upload ถูกประมวลผลแล้วลบทันที เก็บไว้แค่ 4 ตัวท้ายของเลขบัตร
                                 กับรหัส NAP เพื่อ audit เท่านั้น (90 วันแล้วลบอัตโนมัติ)
+                            </p>
+                        </div>
+                        <div>
+                            <h3 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+                                1 เคสนับยังไง? ถ้าบันทึกหลาย form ต่อผู้รับบริการคนเดียวกัน?
+                            </h3>
+                            <p class="text-slate-600 dark:text-slate-400">
+                                <strong>1 เคส = 1 ผู้รับบริการ (patient visit)</strong> ไม่ว่าคุณจะบันทึก
+                                RR อย่างเดียว, RR+VCT, หรือ RR+VCT+Lab+Result ครบวงจร
+                                <strong>นับเป็น 1 เคสเท่านั้น</strong> ไม่คิดเพิ่มตาม form
+                                <br /><br />
+                                เพิ่มการบันทึก Result ทีหลัง (เช่น รอผล lab) ก็ไม่นับซ้ำ — ถือเป็นการ
+                                update ของเคสเดิม คุณได้ flexibility เต็มในการบันทึกตามจังหวะงานจริง
                             </p>
                         </div>
                         <div>
