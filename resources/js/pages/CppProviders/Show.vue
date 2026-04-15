@@ -84,6 +84,88 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: props.provider.name, href: `/cpp-providers/${props.provider.hcode}` },
 ];
 
+const thaiMonths = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน',
+    'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม',
+    'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+];
+
+function formatThaiDate(dateStr: string | null): string {
+    if (!dateStr) {
+        return '-';
+    }
+
+    const d = new Date(dateStr);
+
+    if (isNaN(d.getTime())) {
+        return dateStr;
+    }
+
+    const day = d.getDate();
+    const month = thaiMonths[d.getMonth()];
+    const yearBE = d.getFullYear() + 543;
+
+    return `${day} ${month} ${yearBE}`;
+}
+
+function formatThaiDateTime(dateStr: string | null): string {
+    if (!dateStr) {
+        return '-';
+    }
+
+    const d = new Date(dateStr);
+
+    if (isNaN(d.getTime())) {
+        return dateStr;
+    }
+
+    const base = formatThaiDate(dateStr);
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+
+    return `${base} ${h}:${m} น.`;
+}
+
+function timeAgo(dateStr: string | null): string {
+    if (!dateStr) {
+        return '';
+    }
+
+    const d = new Date(dateStr);
+
+    if (isNaN(d.getTime())) {
+        return '';
+    }
+
+    const diffMs = Date.now() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+    const diffMonth = Math.floor(diffDay / 30);
+
+    if (diffMin < 1) {
+        return 'เมื่อสักครู่';
+    }
+
+    if (diffMin < 60) {
+        return `${diffMin} นาทีที่แล้ว`;
+    }
+
+    if (diffHour < 24) {
+        return `${diffHour} ชั่วโมงที่แล้ว`;
+    }
+
+    if (diffDay < 30) {
+        return `${diffDay} วันที่แล้ว`;
+    }
+
+    if (diffMonth < 12) {
+        return `${diffMonth} เดือนที่แล้ว`;
+    }
+
+    return `${Math.floor(diffMonth / 12)} ปีที่แล้ว`;
+}
+
 const fullAddress = computed(() => {
     const p = props.provider;
     const parts: string[] = [];
@@ -254,15 +336,23 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                             <span class="text-slate-500">ผู้ประสานงาน</span>
                             <span class="font-semibold">{{ provider.coordinators.length }}</span>
                         </div>
-                        <div class="flex items-center justify-between text-sm">
-                            <span class="text-slate-500">อัพเดทล่าสุด (CPP)</span>
-                            <span class="font-semibold">{{ provider.cpp_last_updated ?? '-' }}</span>
+                        <div class="flex flex-col gap-0.5 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500">อัพเดทล่าสุด (CPP)</span>
+                                <span class="font-semibold">{{ formatThaiDate(provider.cpp_last_updated) }}</span>
+                            </div>
+                            <div v-if="provider.cpp_last_updated" class="text-right text-xs text-slate-400">
+                                {{ timeAgo(provider.cpp_last_updated) }}
+                            </div>
                         </div>
-                        <div class="flex items-center justify-between text-sm">
-                            <span class="text-slate-500">Scraped at</span>
-                            <span class="font-semibold text-xs">
-                                {{ provider.scraped_at ? new Date(provider.scraped_at).toLocaleDateString('th-TH') : '-' }}
-                            </span>
+                        <div class="flex flex-col gap-0.5 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500">เก็บข้อมูลเมื่อ</span>
+                                <span class="font-semibold text-xs">{{ formatThaiDateTime(provider.scraped_at) }}</span>
+                            </div>
+                            <div v-if="provider.scraped_at" class="text-right text-xs text-slate-400">
+                                {{ timeAgo(provider.scraped_at) }}
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
