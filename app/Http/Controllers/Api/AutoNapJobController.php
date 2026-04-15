@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessAutoNapJob;
 use App\Models\AutonapRequest;
+use App\Services\HcodeValidatorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -101,6 +102,11 @@ class AutoNapJobController extends Controller
         // Use full items from request (not $validated which strips extra rr_form fields)
         $items = $request->input('items');
 
+        // Soft hcode validation — log any next_hcode not found in CPP registry (non-fatal)
+        if ($formType === 'RR') {
+            $this->logInvalidHcodes($items, $jobId);
+        }
+
         // Save request to database
         AutonapRequest::create([
             'job_id' => $jobId,
@@ -172,6 +178,41 @@ class AutoNapJobController extends Controller
                     : 'Job dispatched. Subscribe to Ably channel for progress.'),
             'ably_channel' => $validated['ably_channel'] ?? null,
         ]);
+    }
+
+    /**
+     * Log any RR items whose next_hcode is not found in the CPP registry.
+     * Non-fatal — just a warning to help surface data quality issues.
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     */
+    protected function logInvalidHcodes(array $items, string $jobId): void
+    {
+        $validator = app(HcodeValidatorService::class);
+        $invalid = [];
+
+        foreach ($items as $item) {
+            $hcode = $item['rr_form']['next_hcode'] ?? null;
+
+            if (! $hcode) {
+                continue;
+            }
+
+            if (! $validator->exists((string) $hcode)) {
+                $invalid[] = [
+                    'source_id' => $item['source_id'] ?? null,
+                    'next_hcode' => $hcode,
+                ];
+            }
+        }
+
+        if (! empty($invalid)) {
+            Log::warning('AutoNAP: invalid next_hcode detected', [
+                'job_id' => $jobId,
+                'count' => count($invalid),
+                'invalid' => array_slice($invalid, 0, 10),
+            ]);
+        }
     }
 
     /**
