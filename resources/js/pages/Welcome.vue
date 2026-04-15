@@ -190,17 +190,17 @@ const pricingTiers = [
 const testimonials = [
     {
         name: 'ผู้จัดการคลินิก',
-        org: 'Caremat เชียงใหม่',
+        org: 'คลินิก HIV ภาคเหนือ',
         quote: 'เคยใช้เวลาบันทึก NAP ทั้งวัน ตอนนี้เสร็จใน 1 ชั่วโมง ทีมมีเวลาไปดูแลคนไข้มากขึ้น',
     },
     {
         name: 'ผู้ประสานงาน',
-        org: 'MPlus เชียงใหม่',
+        org: 'มูลนิธิ HIV ภาคเหนือ',
         quote: 'ประหยัดค่าจ้างพนักงานบันทึก 1 คน เดือนละเกือบ 20,000 — ใช้งบไปพัฒนา outreach แทน',
     },
     {
         name: 'ผู้อำนวยการ',
-        org: 'RSAT กรุงเทพฯ',
+        org: 'สมาคม HIV กรุงเทพฯ',
         quote: 'UIC ไม่หลุดแล้ว บันทึกเร็วทันเดดไลน์ทุกเดือน — เคลมเต็มตลอด 6 เดือน',
     },
 ];
@@ -297,8 +297,8 @@ const stats = [
 
                             <p class="text-lg text-pretty text-slate-600 dark:text-slate-400">
                                 ลดเวลาบันทึกจาก <strong>3 นาที เหลือ 15 วินาที/เคส</strong>
-                                — ใช้แล้วโดยคลินิก HIV 17 แห่งทั่วประเทศ
-                                รวม MPlus, RSAT, Caremat, SWING
+                                — ใช้แล้วโดยคลินิก HIV <strong>17 แห่ง</strong>ทั่วประเทศ
+                                ในเครือข่าย สปสช.
                             </p>
 
                             <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
