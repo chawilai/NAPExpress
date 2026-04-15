@@ -245,19 +245,22 @@ function affiliationColor(a: string | null): string {
                     <div class="mt-3 grid gap-3 md:grid-cols-4">
                         <!-- Type code -->
                         <div class="md:col-span-2">
-                            <Label class="mb-1 text-xs">ประเภทหน่วยบริการ</Label>
+                            <Label class="mb-1 text-xs">
+                                ประเภทหน่วยบริการ
+                                <span class="text-slate-400">({{ facets.type_codes?.length ?? 0 }})</span>
+                            </Label>
                             <Select v-model="typeCode">
                                 <SelectTrigger>
                                     <SelectValue placeholder="ทุกประเภท" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent class="max-h-80">
                                     <SelectItem value=" ">ทุกประเภท</SelectItem>
                                     <SelectItem
-                                        v-for="t in facets.type_codes"
+                                        v-for="t in (facets.type_codes ?? [])"
                                         :key="t.code"
                                         :value="t.code"
                                     >
-                                        [{{ t.code }}] {{ t.name.slice(0, 50) }} ({{ t.count }})
+                                        [{{ t.code }}] {{ (t.name ?? '').substring(0, 50) }} ({{ t.count }})
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
