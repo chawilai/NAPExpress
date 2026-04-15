@@ -100,11 +100,11 @@ const features = [
         color: 'text-green-500',
     },
     {
-        title: 'ไม่ใช่ Hack',
+        title: 'Automation Tool มาตรฐาน',
         description:
-            'เป็น RPA (Robotic Process Automation) เหมือนที่ธนาคาร/บริษัทบัญชีใช้ — ใช้ credentials ของคลินิกเอง',
+            'เป็น Robotic Process Automation (RPA) แบบเดียวกับที่ธนาคาร/บริษัทบัญชีใช้ — ระบบทำหน้าที่เป็นผู้ช่วยของเจ้าหน้าที่ ทำงานในนามของผู้ใช้เอง',
         icon: CheckCircle2,
-        color: 'text-rose-500',
+        color: 'text-emerald-500',
     },
 ];
 
@@ -620,12 +620,12 @@ const stats = [
                     <div class="space-y-6">
                         <div>
                             <h3 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
-                                AutoNAP เป็นการ hack ระบบ สปสช. หรือเปล่า?
+                                AutoNAP ทำงานกับระบบ สปสช. อย่างไร?
                             </h3>
                             <p class="text-slate-600 dark:text-slate-400">
-                                ไม่ครับ — เป็น Robotic Process Automation (RPA) เหมือนระบบที่ธนาคารและบริษัทบัญชีใช้
-                                AutoNAP ใช้ ThaiID ของผู้ใช้งานจริง หรือ credentials ที่คลินิกให้มาเอง
-                                และทำในสิ่งที่เจ้าหน้าที่ทำได้อยู่แล้ว — แค่เร็วกว่า
+                                AutoNAP เป็น Robotic Process Automation (RPA) แบบเดียวกับที่ธนาคารและบริษัทบัญชีใช้
+                                ระบบทำงานเป็น "ผู้ช่วยเสมือน" ของเจ้าหน้าที่ — Login ผ่าน ThaiID ของผู้ใช้เอง หรือ credentials ของคลินิก
+                                แล้วกรอกฟอร์มในสิ่งที่เจ้าหน้าที่ทำเองได้อยู่แล้ว เพียงแต่ทำเร็วและต่อเนื่องกว่า
                             </p>
                         </div>
                         <div>
