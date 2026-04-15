@@ -10,6 +10,9 @@ Route::inertia('/', 'Welcome', [
     'canRegister' => Features::enabled(Features::registration()),
 ])->name('home');
 
+Route::inertia('/privacy', 'Legal/Privacy')->name('legal.privacy');
+Route::inertia('/terms', 'Legal/Terms')->name('legal.terms');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [ReportingJobController::class, 'index'])->name('dashboard');
 

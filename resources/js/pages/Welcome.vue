@@ -14,6 +14,7 @@ import {
     Sparkles,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import DemoRequestDialog from '@/components/DemoRequestDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +25,12 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { dashboard, login, register } from '@/routes';
+
+const demoDialogOpen = ref(false);
+
+function openDemoDialog() {
+    demoDialogOpen.value = true;
+}
 
 defineProps<{
     canRegister: boolean;
@@ -293,8 +300,13 @@ const stats = [
                                 <Button size="lg" as-child class="h-12 px-8 text-base">
                                     <Link :href="register()">เริ่มทดลองฟรี 30 วัน</Link>
                                 </Button>
-                                <Button size="lg" variant="outline" class="h-12 px-8 text-base">
-                                    ดู Demo
+                                <Button
+                                    size="lg"
+                                    variant="outline"
+                                    class="h-12 px-8 text-base"
+                                    @click="openDemoDialog"
+                                >
+                                    นัดคุย Demo 15 นาที
                                 </Button>
                             </div>
 
@@ -702,6 +714,7 @@ const stats = [
                             size="lg"
                             variant="outline"
                             class="h-12 border-slate-700 px-10 text-slate-300 hover:bg-slate-800"
+                            @click="openDemoDialog"
                         >
                             นัดคุย Demo 15 นาที
                         </Button>
@@ -722,13 +735,15 @@ const stats = [
                         &copy; 2026 AutoNAP. สำหรับเครือข่ายคลินิก HIV ภายใต้ สปสช.
                     </div>
                     <div class="flex gap-6 text-sm text-slate-500 dark:text-slate-400">
-                        <a href="/privacy" class="hover:text-teal-500">Privacy Policy</a>
-                        <a href="/terms" class="hover:text-teal-500">Terms of Service</a>
+                        <Link href="/privacy" class="hover:text-teal-500">Privacy Policy</Link>
+                        <Link href="/terms" class="hover:text-teal-500">Terms of Service</Link>
                         <a href="mailto:privacy@autonap.co.th" class="hover:text-teal-500">ติดต่อ</a>
                     </div>
                 </div>
             </div>
         </footer>
+
+        <DemoRequestDialog v-model:open="demoDialogOpen" />
     </div>
 </template>
 
