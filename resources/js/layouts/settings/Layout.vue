@@ -20,6 +20,10 @@ const sidebarNavItems: NavItem[] = [
         href: editSecurity(),
     },
     {
+        title: 'API Tokens',
+        href: '/settings/api-tokens',
+    },
+    {
         title: 'Appearance',
         href: editAppearance(),
     },
