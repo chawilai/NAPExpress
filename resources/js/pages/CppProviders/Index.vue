@@ -366,10 +366,14 @@ function affiliationColor(a: string | null): string {
                                     </td>
                                     <td class="px-4 py-3 text-right">
                                         <Button as-child size="sm" variant="outline">
-                                            <Link :href="`/cpp-providers/${p.hcode}`">
+                                            <a
+                                                :href="`/cpp-providers/${p.hcode}`"
+                                                target="_blank"
+                                                rel="noopener"
+                                            >
                                                 ดู
                                                 <ExternalLink class="ml-1 h-3 w-3" />
-                                            </Link>
+                                            </a>
                                         </Button>
                                     </td>
                                 </tr>
