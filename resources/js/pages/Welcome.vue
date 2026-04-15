@@ -640,11 +640,15 @@ const stats = [
                         </div>
                         <div>
                             <h3 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
-                                ถ้าไม่ใช้ CAREMAT ใช้ AutoNAP ได้ไหม?
+                                ใช้ร่วมกับระบบคลินิกใดได้บ้าง?
                             </h3>
                             <p class="text-slate-600 dark:text-slate-400">
-                                ได้ครับ — รองรับ 5 ช่องทาง: CSV upload, Web form, Google Sheets, API, และ Custom integration
-                                ลูกค้าส่วนใหญ่เริ่มจาก CSV upload ก่อน เพราะง่ายที่สุด
+                                AutoNAP ออกแบบเป็น <strong>input-agnostic</strong> — ใช้ได้โดยไม่ต้องเปลี่ยนระบบเดิมของคุณ
+                                รองรับ 5 ช่องทาง: <strong>CSV/Excel upload</strong>, Web form บน AutoNAP,
+                                Google Sheets sync, Open API/Webhook และ Custom integration
+                                <br /><br />
+                                Integration พร้อมใช้งาน: <strong>ACTSE Clinic</strong> (ระบบจัดการคลินิกในเครือ) และ CAREMAT
+                                ส่วนระบบอื่นสามารถเริ่มจาก CSV upload ได้ทันที ไม่ต้องรอ IT ของลูกค้าเซ็ตอัพ
                             </p>
                         </div>
                         <div>
