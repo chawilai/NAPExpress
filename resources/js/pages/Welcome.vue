@@ -42,8 +42,9 @@ const staffCost = computed(() => Math.max(0, casesPerMonth.value * 15)); // ~15 
 const autoNapCost = computed(() => {
     if (casesPerMonth.value <= 500) return 1990;
     if (casesPerMonth.value <= 1500) return 3990;
-    if (casesPerMonth.value <= 3000) return 7990;
-    return 14990;
+    if (casesPerMonth.value <= 3500) return 5990;
+    if (casesPerMonth.value <= 8000) return 12990;
+    return 12990;
 });
 const saved = computed(() => Math.max(0, staffCost.value - autoNapCost.value));
 const savedPerYear = computed(() => saved.value * 12);
@@ -146,36 +147,40 @@ const pricingTiers = [
             '3 users',
         ],
         cta: 'เลือก Growth',
-        popular: true,
+        popular: false,
     },
     {
         name: 'Scale',
         tagline: 'สำหรับคลินิกใหญ่',
-        price: '3,995',
-        listPrice: '7,990',
-        quota: '3,000 เคส/เดือน',
+        price: '2,995',
+        listPrice: '5,990',
+        quota: '3,500 เคส/เดือน',
+        badge: 'คุ้มที่สุด',
         features: [
+            '🚀 2.3× เคสจาก Growth (คุ้มกว่า)',
             'Unlimited users',
+            'Priority processing (x2 เร็วกว่า)',
             'Custom integration',
-            'SLA 99%',
-            '24x7 support',
-            'Advanced reporting',
+            'SLA 99% + 24x7 support',
+            'Advanced reporting + audit export',
+            'Overage ลดเหลือ ฿2.5/เคส',
         ],
         cta: 'เลือก Scale',
-        popular: false,
+        popular: true,
     },
     {
         name: 'Enterprise',
         tagline: 'เครือข่าย/รพ.',
-        price: '7,495',
-        listPrice: '14,990',
-        quota: '6,000+ เคส/เดือน',
+        price: '6,495',
+        listPrice: '12,990',
+        quota: '8,000 เคส/เดือน',
         features: [
-            'Dedicated worker',
+            'Dedicated worker (ไม่ต้องรอคิว)',
             'On-premise option',
-            'Custom form',
+            'Custom form + white-label',
             'Account manager',
             'Multi-site billing',
+            'Overage ฿2/เคส',
         ],
         cta: 'ติดต่อเรา',
         popular: false,
@@ -544,7 +549,7 @@ const stats = [
                                 v-if="tier.popular"
                                 class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-teal-500 px-3 py-1 text-xs font-bold text-white"
                             >
-                                แนะนำ
+                                {{ tier.badge || 'แนะนำ' }}
                             </div>
                             <CardHeader>
                                 <CardTitle class="text-2xl font-bold">{{ tier.name }}</CardTitle>
