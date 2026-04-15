@@ -85,27 +85,29 @@ class CppProviderController extends Controller
         $perPage = $filters['per_page'] ?? 25;
         $providers = $query->paginate($perPage)->withQueryString();
 
-        // Facets for filter dropdowns — cached result sets
-        $provinces = cache()->remember('cpp:facet:provinces', 3600, function () {
+        // Facets for filter dropdowns — cached as plain arrays (avoid Collection serialization quirks)
+        $provinces = cache()->remember('cpp:facet:provinces:v2', 3600, function () {
             return DB::table('cpp_providers')
                 ->select('province', DB::raw('COUNT(*) as c'))
                 ->whereNotNull('province')
                 ->where('province', '!=', '')
                 ->groupBy('province')
                 ->orderByDesc('c')
-                ->pluck('c', 'province');
+                ->pluck('c', 'province')
+                ->toArray();
         });
 
-        $affiliations = cache()->remember('cpp:facet:affiliations', 3600, function () {
+        $affiliations = cache()->remember('cpp:facet:affiliations:v2', 3600, function () {
             return DB::table('cpp_providers')
                 ->select('affiliation', DB::raw('COUNT(*) as c'))
                 ->whereNotNull('affiliation')
                 ->groupBy('affiliation')
                 ->orderByDesc('c')
-                ->pluck('c', 'affiliation');
+                ->pluck('c', 'affiliation')
+                ->toArray();
         });
 
-        $typeCodes = cache()->remember('cpp:facet:types', 3600, function () {
+        $typeCodes = cache()->remember('cpp:facet:types:v2', 3600, function () {
             return DB::table('cpp_provider_network_types')
                 ->select('type_code', DB::raw('MIN(type_name) as type_name'), DB::raw('COUNT(DISTINCT cpp_provider_id) as c'))
                 ->groupBy('type_code')
@@ -115,7 +117,9 @@ class CppProviderController extends Controller
                     'code' => $r->type_code,
                     'name' => $r->type_name,
                     'count' => $r->c,
-                ]);
+                ])
+                ->values()
+                ->all();
         });
 
         return Inertia::render('CppProviders/Index', [
