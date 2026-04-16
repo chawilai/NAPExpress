@@ -137,9 +137,9 @@ function applyFilters() {
             province: province.value || undefined,
             affiliation: affiliation.value || undefined,
             type_code: typeCode.value || undefined,
-            has_email: hasEmail.value || undefined,
-            has_coordinator: hasCoordinator.value || undefined,
-            hiv_only: hivOnly.value || undefined,
+            has_email: hasEmail.value ? 1 : undefined,
+            has_coordinator: hasCoordinator.value ? 1 : undefined,
+            hiv_only: hivOnly.value ? 1 : undefined,
         },
         { preserveState: true, preserveScroll: true, replace: true }
     );
@@ -153,7 +153,14 @@ watch(q, () => {
     searchTimer = setTimeout(applyFilters, 400);
 });
 
-watch([province, affiliation, typeCode, hasEmail, hasCoordinator, hivOnly], () => {
+watch([province, affiliation, typeCode, hasEmail, hasCoordinator, hivOnly], (newVals) => {
+    console.log('[CPP Filter] checkbox changed:', {
+        hasEmail: hasEmail.value,
+        hasCoordinator: hasCoordinator.value,
+        hivOnly: hivOnly.value,
+        typeOfHiv: typeof hivOnly.value,
+        raw: newVals,
+    });
     applyFilters();
 });
 
