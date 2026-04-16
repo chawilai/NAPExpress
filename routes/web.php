@@ -14,7 +14,10 @@ Route::inertia('/privacy', 'Legal/Privacy')->name('legal.privacy');
 Route::inertia('/terms', 'Legal/Terms')->name('legal.terms');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', [ReportingJobController::class, 'index'])->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'summary'])->name('dashboard');
+    Route::get('dashboard/templates/{filename}', [DashboardController::class, 'downloadTemplate'])
+        ->where('filename', '[a-zA-Z0-9_.-]+')
+        ->name('dashboard.download-template');
 
     Route::get('jobs/download-template', [ReportingJobController::class, 'downloadTemplate'])->name('jobs.download-template');
     Route::resource('jobs', ReportingJobController::class)->only(['index', 'store', 'show']);
@@ -23,7 +26,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('cpp-providers/{hcode}', [CppProviderController::class, 'show'])->name('cpp-providers.show');
 });
 
-// AutoNAP Dashboard (public, no auth)
+// AutoNAP realtime monitor (public, no auth — existing blade view)
 Route::get('autonap', [DashboardController::class, 'index']);
 
 require __DIR__.'/settings.php';

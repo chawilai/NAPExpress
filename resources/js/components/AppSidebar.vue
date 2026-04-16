@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, Building2, FolderGit2, LayoutGrid } from 'lucide-vue-next';
+import { BookOpen, Building2, FolderGit2, LayoutGrid, Monitor } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -19,8 +19,13 @@ import type { NavItem } from '@/types';
 const mainNavItems: NavItem[] = [
     {
         title: 'Dashboard',
-        href: '/autonap',
+        href: '/dashboard',
         icon: LayoutGrid,
+    },
+    {
+        title: 'Realtime Monitor',
+        href: '/autonap',
+        icon: Monitor,
     },
     {
         title: 'หน่วยบริการ CPP',
@@ -49,7 +54,7 @@ const footerNavItems: NavItem[] = [
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
-                        <Link href="/autonap">
+                        <Link href="/dashboard">
                             <AppLogo />
                         </Link>
                     </SidebarMenuButton>

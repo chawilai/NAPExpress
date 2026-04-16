@@ -6,8 +6,12 @@ use App\Models\AutonapRequest;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class DashboardController extends Controller
 {
@@ -15,6 +19,110 @@ class DashboardController extends Controller
     {
         return view('dashboard', [
             'ablyKey' => config('services.ably.key', ''),
+        ]);
+    }
+
+    /**
+     * Dashboard summary — Inertia page with stats, history, templates, CTA.
+     */
+    public function summary(Request $request): Response
+    {
+        $period = $request->input('period', 'month');
+        [$startDate, $endDate] = $this->resolveDateRange(
+            $period,
+            $request->input('from'),
+            $request->input('to')
+        );
+
+        $filtered = AutonapRequest::query()
+            ->whereBetween('created_at', [$startDate, $endDate]);
+
+        $summary = (clone $filtered)
+            ->selectRaw('COUNT(*) as total_jobs')
+            ->selectRaw('COALESCE(SUM(total), 0) as total_records')
+            ->selectRaw('COALESCE(SUM(success), 0) as total_success')
+            ->selectRaw('COALESCE(SUM(failed), 0) as total_failed')
+            ->first();
+
+        $successRate = $summary->total_records > 0
+            ? round(($summary->total_success / $summary->total_records) * 100, 1)
+            : 0;
+
+        // Paginated history with search
+        $historyQuery = AutonapRequest::query()
+            ->orderByDesc('created_at');
+
+        if ($search = $request->input('q')) {
+            $historyQuery->where(function ($w) use ($search) {
+                $w->where('site', 'LIKE', "%{$search}%")
+                    ->orWhere('job_id', 'LIKE', "%{$search}%")
+                    ->orWhere('form_type', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if ($formType = $request->input('form_type')) {
+            $historyQuery->where('form_type', $formType);
+        }
+
+        if ($status = $request->input('status')) {
+            $historyQuery->where('status', $status);
+        }
+
+        $history = $historyQuery->paginate(20)->withQueryString();
+
+        $uniqueSites = AutonapRequest::distinct('site')->pluck('site')->filter()->values();
+        $uniqueFormTypes = AutonapRequest::distinct('form_type')->pluck('form_type')->filter()->values();
+
+        return Inertia::render('Overview', [
+            'summary' => [
+                'total_jobs' => (int) $summary->total_jobs,
+                'total_records' => (int) $summary->total_records,
+                'total_success' => (int) $summary->total_success,
+                'total_failed' => (int) $summary->total_failed,
+                'success_rate' => $successRate,
+                'period' => $period,
+                'date_range' => [
+                    'from' => $startDate->format('Y-m-d'),
+                    'to' => $endDate->format('Y-m-d'),
+                ],
+            ],
+            'history' => $history,
+            'facets' => [
+                'sites' => $uniqueSites,
+                'form_types' => $uniqueFormTypes,
+            ],
+            'filters' => [
+                'q' => $request->input('q'),
+                'form_type' => $request->input('form_type'),
+                'status' => $request->input('status'),
+                'period' => $period,
+            ],
+            'templates' => [
+                ['name' => 'RR (Reach RR)', 'filename' => 'template_rr.csv', 'description' => 'บันทึก Reach / Outreach record'],
+                ['name' => 'VCT + Testing', 'filename' => 'template_vct.csv', 'description' => 'VCT + Lab + Result ในไฟล์เดียว'],
+            ],
+        ]);
+    }
+
+    /**
+     * Download a CSV template.
+     */
+    public function downloadTemplate(string $filename): BinaryFileResponse|HttpResponse
+    {
+        $allowed = ['template_rr.csv', 'template_vct.csv'];
+
+        if (! in_array($filename, $allowed, true)) {
+            abort(404);
+        }
+
+        $path = base_path('docs/csv_templates/'.$filename);
+
+        if (! file_exists($path)) {
+            abort(404);
+        }
+
+        return response()->download($path, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 
