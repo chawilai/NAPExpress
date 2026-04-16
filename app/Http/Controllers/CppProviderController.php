@@ -74,8 +74,10 @@ class CppProviderController extends Controller
 
         if (! empty($filters['hiv_only'])) {
             $query->where(function ($w) {
-                $w->whereHas('networkTypes', fn ($n) => $n->where('type_code', 'R0216'))
-                    ->orWhere('name', 'REGEXP', 'ฟ้าสีรุ้ง|เอ็มพลัส|แคร์แมท|สวิง|ซิสเตอร์|เอ็มเฟรนด์');
+                $w->whereHas('networkTypes', fn ($n) => $n->where('type_code', 'R0216'));
+                foreach (self::hivKeywords() as $kw) {
+                    $w->orWhere('name', 'LIKE', "%{$kw}%");
+                }
             });
         }
 
@@ -132,14 +134,26 @@ class CppProviderController extends Controller
             ],
             'totals' => [
                 'all' => cache()->remember('cpp:total', 3600, fn () => CppProvider::count()),
-                'hiv_ecosystem' => cache()->remember('cpp:total:hiv', 3600, function () {
+                'hiv_ecosystem' => cache()->remember('cpp:total:hiv:v2', 3600, function () {
                     return CppProvider::where(function ($q) {
-                        $q->whereHas('networkTypes', fn ($n) => $n->where('type_code', 'R0216'))
-                            ->orWhere('name', 'REGEXP', 'ฟ้าสีรุ้ง|เอ็มพลัส|แคร์แมท|สวิง|ซิสเตอร์|เอ็มเฟรนด์');
+                        $q->whereHas('networkTypes', fn ($n) => $n->where('type_code', 'R0216'));
+                        foreach (self::hivKeywords() as $kw) {
+                            $q->orWhere('name', 'LIKE', "%{$kw}%");
+                        }
                     })->count();
                 }),
             ],
         ]);
+    }
+
+    /**
+     * HIV ecosystem keywords used in name-based fallback matching.
+     *
+     * @return array<int, string>
+     */
+    protected static function hivKeywords(): array
+    {
+        return ['ฟ้าสีรุ้ง', 'เอ็มพลัส', 'แคร์แมท', 'สวิง', 'ซิสเตอร์', 'เอ็มเฟรนด์'];
     }
 
     /**
