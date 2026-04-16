@@ -23,6 +23,16 @@ class DashboardController extends Controller
     }
 
     /**
+     * Realtime monitor — Inertia page that wraps the blade dashboard in AppLayout.
+     */
+    public function monitor(): Response
+    {
+        return Inertia::render('AutonapMonitor', [
+            'embedUrl' => route('autonap.embed'),
+        ]);
+    }
+
+    /**
      * Dashboard summary — Inertia page with stats, history, templates, CTA.
      */
     public function summary(Request $request): Response

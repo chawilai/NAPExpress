@@ -26,7 +26,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('cpp-providers/{hcode}', [CppProviderController::class, 'show'])->name('cpp-providers.show');
 });
 
-// AutoNAP realtime monitor (public, no auth — existing blade view)
-Route::get('autonap', [DashboardController::class, 'index']);
+// AutoNAP realtime monitor
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('autonap', [DashboardController::class, 'monitor'])->name('autonap.monitor');
+});
+Route::get('autonap/embed', [DashboardController::class, 'index'])->name('autonap.embed');
 
 require __DIR__.'/settings.php';
