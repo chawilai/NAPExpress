@@ -278,19 +278,19 @@ function affiliationColor(a: string | null): string {
                             <Label class="mb-1 text-xs">ตัวกรองเพิ่มเติม</Label>
                             <div class="flex flex-wrap items-center gap-4">
                                 <div class="flex items-center gap-2">
-                                    <Checkbox id="hiv_only" v-model:model-value="hivOnly" />
+                                    <Checkbox id="hiv_only" v-model="hivOnly" />
                                     <label for="hiv_only" class="cursor-pointer text-sm">
                                         🎯 HIV ecosystem เท่านั้น
                                     </label>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <Checkbox id="has_email" v-model:model-value="hasEmail" />
+                                    <Checkbox id="has_email" v-model="hasEmail" />
                                     <label for="has_email" class="cursor-pointer text-sm">
                                         📧 มี email
                                     </label>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <Checkbox id="has_coord" v-model:model-value="hasCoordinator" />
+                                    <Checkbox id="has_coord" v-model="hasCoordinator" />
                                     <label for="has_coord" class="cursor-pointer text-sm">
                                         👥 มีผู้ประสานงาน
                                     </label>
