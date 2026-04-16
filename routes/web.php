@@ -16,7 +16,7 @@ Route::inertia('/terms', 'Legal/Terms')->name('legal.terms');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'summary'])->name('dashboard');
     Route::get('dashboard/templates/{filename}', [DashboardController::class, 'downloadTemplate'])
-        ->where('filename', '[a-zA-Z0-9_.-]+')
+        ->where('filename', '[a-zA-Z0-9_.\\-]+')
         ->name('dashboard.download-template');
 
     Route::get('jobs/download-template', [ReportingJobController::class, 'downloadTemplate'])->name('jobs.download-template');

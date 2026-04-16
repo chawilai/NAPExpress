@@ -127,28 +127,34 @@ test('dashboard history filter by form_type works', function () {
         );
 });
 
-test('dashboard can download template_rr.csv', function () {
+test('dashboard can download template_rr.xlsx', function () {
     $this->actingAs($this->user)
-        ->get('/dashboard/templates/template_rr.csv')
+        ->get('/dashboard/templates/template_rr.xlsx')
         ->assertOk()
-        ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+        ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 });
 
-test('dashboard can download template_vct.csv', function () {
+test('dashboard can download template_vct.xlsx', function () {
     $this->actingAs($this->user)
-        ->get('/dashboard/templates/template_vct.csv')
+        ->get('/dashboard/templates/template_vct.xlsx')
         ->assertOk()
-        ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+        ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+});
+
+test('dashboard can still download legacy CSV templates', function () {
+    $this->actingAs($this->user)
+        ->get('/dashboard/templates/template_rr.csv')
+        ->assertOk();
 });
 
 test('dashboard rejects unknown template filename', function () {
     $this->actingAs($this->user)
-        ->get('/dashboard/templates/malicious.csv')
+        ->get('/dashboard/templates/malicious.xlsx')
         ->assertNotFound();
 });
 
 test('dashboard templates route is protected by auth', function () {
-    $this->get('/dashboard/templates/template_rr.csv')
+    $this->get('/dashboard/templates/template_rr.xlsx')
         ->assertRedirect('/login');
 });
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AutonapRequest;
+use App\Services\ExcelTemplateGenerator;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -108,31 +109,38 @@ class DashboardController extends Controller
                 'period' => $period,
             ],
             'templates' => [
-                ['name' => 'RR (Reach RR)', 'filename' => 'template_rr.csv', 'description' => 'บันทึก Reach / Outreach record'],
-                ['name' => 'VCT + Testing', 'filename' => 'template_vct.csv', 'description' => 'VCT + Lab + Result ในไฟล์เดียว'],
+                ['name' => 'RR (Reach RR)', 'filename' => 'template_rr.xlsx', 'description' => 'บันทึก Reach / Outreach record (Excel, 2 sheets: คู่มือ + ข้อมูล)'],
+                ['name' => 'VCT + Testing', 'filename' => 'template_vct.xlsx', 'description' => 'VCT + Lab + Result ในไฟล์เดียว (Excel, 2 sheets: คู่มือ + ข้อมูล)'],
             ],
         ]);
     }
 
     /**
-     * Download a CSV template.
+     * Download an Excel template (.xlsx) with 2 sheets: Documentation + Data.
      */
     public function downloadTemplate(string $filename): BinaryFileResponse|HttpResponse
     {
-        $allowed = ['template_rr.csv', 'template_vct.csv'];
+        $generator = app(ExcelTemplateGenerator::class);
 
-        if (! in_array($filename, $allowed, true)) {
+        $path = match ($filename) {
+            'template_rr.xlsx' => $generator->generateRr(),
+            'template_vct.xlsx' => $generator->generateVct(),
+            // Legacy CSV fallback
+            'template_rr.csv' => base_path('docs/csv_templates/template_rr.csv'),
+            'template_vct.csv' => base_path('docs/csv_templates/template_vct.csv'),
+            default => null,
+        };
+
+        if (! $path || ! file_exists($path)) {
             abort(404);
         }
 
-        $path = base_path('docs/csv_templates/'.$filename);
-
-        if (! file_exists($path)) {
-            abort(404);
-        }
+        $contentType = str_ends_with($filename, '.xlsx')
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            : 'text/csv; charset=UTF-8';
 
         return response()->download($path, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Type' => $contentType,
         ]);
     }
 
