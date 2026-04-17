@@ -26,6 +26,7 @@ const NAP_URLS = {
     createVCTBase: 'https://dmis.nhso.go.th/NAPPLUS/vct/createVCT.do',
     createHivLab: 'https://dmis.nhso.go.th/NAPPLUS/hivLabRequest/createHivLabRequest.do?actionName=load',
     createHivLabBase: 'https://dmis.nhso.go.th/NAPPLUS/hivLabRequest/createHivLabRequest.do',
+    searchRR: 'https://dmis.nhso.go.th/NAPPLUS/rrttr/searchRRTTR.do',
     searchVCT: 'https://dmis.nhso.go.th/NAPPLUS/vct/searchVCT.do',
     searchHivLab: 'https://dmis.nhso.go.th/NAPPLUS/hivLabRequest/searchHivLabRequest.do',
     searchLabResult: 'https://dmis.nhso.go.th/NAPPLUS/responseLabRequest/searchResponseLabRequest.do',
@@ -122,6 +123,15 @@ function buildResultCallback(item, fy, hivResult, napStaffName = '') {
         hiv_result: hivResult,
         nap_status: 'true',
         nap_comment: 'VCT, Lab, Result AutoNAP',
+    };
+}
+
+function buildRrCallback(item, fy, rrCode, napStaffName = '') {
+    return {
+        ...buildBasePayload(item, fy, napStaffName),
+        nap_code: rrCode,
+        nap_status: 'true',
+        nap_comment: 'RR AutoNAP',
     };
 }
 
@@ -1089,8 +1099,83 @@ async function fillAndSubmitHivResult(page, context, loginCookies, labCode, test
 }
 
 // ============================================================
-// Lookup existing codes (for duplicate VCT handling)
+// Duplicate org detection helpers
 // ============================================================
+
+/**
+ * Parse the duplicate error message to extract competing org info.
+ * Example: "วันที่ให้บริการซ้ำกับ G1440 มูลนิธิน้ำกว๊านสีรุ้ง"
+ * Returns: { code: "G1440", name: "มูลนิธิน้ำกว๊านสีรุ้ง" } or null
+ */
+function parseDuplicateOrg(errorMessage) {
+    const match = (errorMessage || '').match(/ซ้ำกับ\s+(\S+)\s+(.+?)$/);
+    if (match) {
+        return { code: match[1].trim(), name: match[2].trim() };
+    }
+    return null;
+}
+
+/**
+ * Check if the duplicate org is the SAME as our logged-in org.
+ * Compares using partial name matching (NAP site name vs error org name).
+ */
+function isSameOrg(napSiteName, duplicateOrg) {
+    if (!napSiteName || !duplicateOrg) return false;
+    const ourName = napSiteName.trim().toLowerCase();
+    const theirName = duplicateOrg.name.trim().toLowerCase();
+    return ourName.includes(theirName) || theirName.includes(ourName);
+}
+
+// ============================================================
+// Lookup existing codes (for duplicate handling)
+// ============================================================
+
+/**
+ * Search for existing RR code by PID.
+ * Returns the most recent RR code or null.
+ */
+async function lookupExistingRR(page, pid) {
+    await page.goto(NAP_URLS.searchRR, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
+
+    // Set actionName and fill PID
+    await page.evaluate(() => {
+        const actionEl = document.getElementById('actionName');
+        if (actionEl) actionEl.value = 'search';
+    });
+    await page.fill('input#pid', pid).catch(() => {});
+    // Try alternate selector if #pid not found
+    const pidFilled = await page.evaluate((p) => {
+        const el = document.querySelector('input#pid') || document.querySelector('input[name="pid"]');
+        if (el) { el.value = p; return true; }
+        return false;
+    }, pid);
+
+    if (!pidFilled) return null;
+
+    await page.click('input[name="cmdSearch"]').catch(() => {
+        // Try alternate button
+        page.click('input[type="submit"], button[type="submit"]').catch(() => {});
+    });
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await delay(1000);
+
+    // Extract RR code from result table
+    const rrCode = await page.evaluate(() => {
+        const rows = document.querySelectorAll('table.result tbody tr, table.list tbody tr, table tbody tr');
+        for (const row of rows) {
+            const cells = row.querySelectorAll('td');
+            for (const cell of cells) {
+                const text = cell.textContent?.trim() || '';
+                const match = text.match(/RR-\d{4}-\d+/);
+                if (match) return match[0];
+            }
+        }
+        return null;
+    });
+
+    return rrCode;
+}
 
 /**
  * Search for existing VCT code by PID.
@@ -1591,8 +1676,72 @@ async function run() {
                 } else {
                     // === RR Flow (existing) ===
                     const rrForm = item.rr_form;
+                    let rrCode;
+                    let rrFromLookup = false;
 
-                    const rrCode = await fillAndSubmitRecord(page, rrForm, isDryRun);
+                    try {
+                        rrCode = await fillAndSubmitRecord(page, rrForm, isDryRun);
+                    } catch (rrErr) {
+                        const errMsg = rrErr.message || '';
+                        const isDuplicate = errMsg.includes('ซ้ำ') || errMsg.includes('มีข้อมูลแล้ว');
+
+                        if (isDuplicate) {
+                            const dupOrg = parseDuplicateOrg(errMsg);
+
+                            if (!dupOrg || isSameOrg(napSiteName, dupOrg)) {
+                                // Same org or unknown org — lookup existing RR code
+                                log(jobId, `  Record ${i + 1}: RR ซ้ำ (org เดียวกัน) — ค้นหา code เดิม...`);
+                                await ably?.publish('job:record:filling', {
+                                    jobId, index: i + 1, total,
+                                    message: `🔍 RR ซ้ำ — กำลังค้นหา code เดิม... (${i + 1}/${total})`,
+                                }, 300);
+
+                                try {
+                                    const existingCode = await lookupExistingRR(page, rrForm.pid || item.id_card);
+                                    if (existingCode) {
+                                        log(jobId, `  Record ${i + 1}: ค้นพบ RR เดิม = ${existingCode}`);
+                                        rrCode = existingCode;
+                                        rrFromLookup = true;
+                                    } else {
+                                        log(jobId, `  Record ${i + 1}: ค้นหา RR เดิมไม่พบ`);
+                                        throw rrErr; // fall through to outer catch
+                                    }
+                                } catch (lookupErr) {
+                                    if (lookupErr === rrErr) throw lookupErr;
+                                    log(jobId, `  Record ${i + 1}: Lookup failed: ${lookupErr.message}`);
+                                    throw rrErr;
+                                }
+                            } else {
+                                // Different org — can't claim, report clearly
+                                const claimedBy = `${dupOrg.code} ${dupOrg.name}`;
+                                const clearError = `ถูก claim โดยองค์กรอื่น: ${claimedBy}`;
+                                log(jobId, `  Record ${i + 1}: RR ซ้ำ (org อื่น: ${claimedBy})`);
+
+                                results.push({
+                                    id_card: item.id_card, uic, success: false,
+                                    nap_code: null, nap_lab_code: null,
+                                    error: clearError,
+                                });
+                                await ably?.publish('job:record:failed', {
+                                    jobId, index: i + 1, total, error: clearError, uic,
+                                    message: `⚠️ ซ้ำ — ${claimedBy} (${i + 1}/${total})`,
+                                }, 300);
+
+                                // Send callback with clear error
+                                if (!isDryRun && cbUrl) {
+                                    await sendCallback(cbUrl, {
+                                        ...buildErrorCallback(item, jobFy, clearError, null),
+                                        nap_comment: clearError,
+                                        claimed_by: claimedBy,
+                                    });
+                                }
+
+                                continue; // next record
+                            }
+                        } else {
+                            throw rrErr; // non-duplicate error
+                        }
+                    }
 
                     if (isDryRun && rrCode?.dryRun) {
                         const report = rrCode.report;
@@ -1629,12 +1778,22 @@ async function run() {
                             report, message: lines.join('\n'),
                         }, 500);
                     } else if (rrCode) {
-                        log(jobId, `  Record ${i + 1}: ${rrCode}`);
+                        const rrLabel = rrFromLookup ? '🔄 ดึงค่าเดิม' : '✅ สำเร็จ';
+                        const rrComment = rrFromLookup ? 'RR ซ้ำ — ดึง code เดิม' : undefined;
+                        log(jobId, `  Record ${i + 1}: ${rrCode}${rrFromLookup ? ' (lookup)' : ''}`);
                         results.push({ id_card: item.id_card, uic, success: true, nap_code: rrCode, nap_lab_code: null, error: null });
                         await ably?.publish('job:record:success', {
                             jobId, index: i + 1, total, napCode: rrCode, uic,
-                            message: `✅ สำเร็จ (${i + 1}/${total}) | ${rrCode}`,
+                            message: `${rrLabel} (${i + 1}/${total}) | ${rrCode}`,
                         }, 300);
+
+                        // Callback with optional comment for lookup
+                        if (!isDryRun && cbUrl && rrFromLookup) {
+                            await sendCallback(cbUrl, {
+                                ...buildRrCallback(item, jobFy, rrCode, cbStaff),
+                                nap_comment: rrComment,
+                            });
+                        }
                     } else {
                         results.push({ id_card: item.id_card, uic, success: false, nap_code: null, nap_lab_code: null, error: 'ไม่พบรหัส RR' });
                         await ably?.publish('job:record:failed', {
