@@ -1944,40 +1944,60 @@ async function run() {
                 }
 
                 const rawError = err.message || '';
-                const friendlyError = humanizeError(rawError);
+                const isSessionError = (rawError.includes('rrttrDate') && rawError.includes('Timeout'))
+                    || (rawError.includes('iam.nhso.go.th'))
+                    || (rawError.includes('Session expired'));
 
-                log(jobId, `  Record ${i + 1} error: ${rawError}`);
-                results.push({ id_card: item.id_card, uic, success: false, nap_code: null, nap_lab_code: null, error: friendlyError });
-                await ably?.publish('job:record:failed', {
-                    jobId, index: i + 1, total, error: friendlyError, uic,
-                    message: `❌ ล้มเหลว (${i + 1}/${total}) | ${friendlyError}`,
-                }, 300);
-
-                // === Early abort: if first 2 records both fail with session error, abort remaining ===
-                const isSessionError = rawError.includes('rrttrDate') && rawError.includes('Timeout');
-                if (isSessionError) {
+                // === Session recovery: re-inject cookies and retry ===
+                if (isSessionError && consecutiveSessionErrors < 2) {
                     consecutiveSessionErrors++;
-                } else {
-                    consecutiveSessionErrors = 0;
+                    log(jobId, `  Record ${i + 1} session error (attempt ${consecutiveSessionErrors}/2) — re-injecting cookies...`);
+                    await ably?.publish('job:preparing', {
+                        jobId, total,
+                        message: `🔄 เซสชันหลุด — กำลัง re-inject cookies... (${i + 1}/${total})`,
+                    }, 500);
+
+                    try {
+                        await workBrowser.close();
+                    } catch {}
+
+                    ({ browser: workBrowser, page } = await createWorkBrowser());
+                    log(jobId, 'Browser restarted with fresh cookies');
+
+                    // Validate session after recovery
+                    const recovered = await validateNapSession(page, jobId);
+                    if (recovered) {
+                        log(jobId, 'Session recovered — retrying record');
+                        consecutiveSessionErrors = 0; // reset counter on success
+                        i--; // retry this record
+                        continue;
+                    }
+
+                    log(jobId, 'Session recovery failed — cookies expired');
                 }
 
-                if (consecutiveSessionErrors >= 2 && i < (items || []).length - 1) {
+                // === If session error persists after recovery attempt → early abort ===
+                if (isSessionError && consecutiveSessionErrors >= 2 && i < (items || []).length - 1) {
                     const abortMsg = 'เซสชันหมดอายุ — ยกเลิก record ที่เหลือ (กรุณา scan ThaID QR ใหม่)';
-                    log(jobId, `EARLY ABORT: ${consecutiveSessionErrors} consecutive session errors — aborting remaining ${total - i - 1} records`);
+                    log(jobId, `EARLY ABORT after recovery failed — aborting remaining ${total - i - 1} records`);
+
+                    // Record current failed item
+                    const friendlyError = humanizeError(rawError);
+                    log(jobId, `  Record ${i + 1} error: ${rawError}`);
+                    results.push({ id_card: item.id_card, uic, success: false, nap_code: null, nap_lab_code: null, error: friendlyError });
+
                     await ably?.publish('job:error', {
                         jobId, total,
                         message: `⚠️ ${abortMsg}`,
                     }, 500);
 
-                    // Fill remaining records with clear error
+                    // Fill remaining records
                     for (let j = i + 1; j < (items || []).length; j++) {
                         const skipItem = items[j];
                         results.push({
                             id_card: skipItem.id_card,
                             uic: skipItem.uic || '',
-                            success: false,
-                            nap_code: null,
-                            nap_lab_code: null,
+                            success: false, nap_code: null, nap_lab_code: null,
                             error: abortMsg,
                         });
                         if (!isDryRun && cbUrl) {
@@ -1989,6 +2009,18 @@ async function run() {
                     }
                     break; // exit loop
                 }
+
+                // === Non-session errors: log friendly message ===
+                if (!isSessionError) {
+                    consecutiveSessionErrors = 0;
+                }
+                const friendlyError = humanizeError(rawError);
+                log(jobId, `  Record ${i + 1} error: ${rawError}`);
+                results.push({ id_card: item.id_card, uic, success: false, nap_code: null, nap_lab_code: null, error: friendlyError });
+                await ably?.publish('job:record:failed', {
+                    jobId, index: i + 1, total, error: friendlyError, uic,
+                    message: `❌ ล้มเหลว (${i + 1}/${total}) | ${friendlyError}`,
+                }, 300);
             }
         }
 
