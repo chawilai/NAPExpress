@@ -1099,6 +1099,92 @@ async function fillAndSubmitHivResult(page, context, loginCookies, labCode, test
 }
 
 // ============================================================
+// Session validation
+// ============================================================
+
+/**
+ * Validate that NAP Plus session is active by checking if the form page loaded.
+ * Returns true if session is valid, false if login/session failed.
+ */
+async function validateNapSession(page, jobId) {
+    try {
+        // Check if we're on NAP Plus (not SSO/login page)
+        const url = page.url();
+        if (url.includes('iam.nhso.go.th') || url.includes('login.jsp') || url.includes('imauth.bora.dopa.go.th')) {
+            log(jobId, `Session check: still on SSO/login page (${url})`);
+            return false;
+        }
+
+        // Check if NAP user bar exists (means we're logged in)
+        const hasUserBar = await page.evaluate(() => {
+            const userBar = document.querySelector('table.userBar td.name');
+            return userBar && userBar.textContent.includes('ชื่อผู้ใช้');
+        }).catch(() => false);
+
+        if (!hasUserBar) {
+            log(jobId, 'Session check: NAP user bar not found');
+            return false;
+        }
+
+        // Check if form inputs exist (means the right page loaded)
+        const hasForm = await page.evaluate(() => {
+            return !!document.querySelector('input[name="rrttrDate"], input[name="pid"], form');
+        }).catch(() => false);
+
+        if (!hasForm) {
+            log(jobId, 'Session check: form inputs not found on page');
+            return false;
+        }
+
+        return true;
+    } catch (e) {
+        log(jobId, `Session check error: ${e.message}`);
+        return false;
+    }
+}
+
+/**
+ * Convert raw Playwright/NAP errors to user-friendly Thai messages.
+ * Technical details are logged but not shown to end users.
+ */
+function humanizeError(rawError) {
+    const e = rawError || '';
+
+    // Session / login errors
+    if (e.includes('rrttrDate') && e.includes('Timeout')) {
+        return 'เซสชันหมดอายุ — ระบบไม่สามารถเข้าถึงฟอร์ม NAP ได้';
+    }
+    if (e.includes('Session expired') || e.includes('login')) {
+        return 'เซสชันหมดอายุ — กรุณา scan ThaID QR ใหม่';
+    }
+    if (e.includes('SSO') || e.includes('iam.nhso.go.th')) {
+        return 'ระบบยืนยันตัวตน สปสช. ขัดข้อง — กรุณาลองใหม่';
+    }
+
+    // NAP Plus errors (already in Thai)
+    if (e.includes('ซ้ำ') || e.includes('ไม่สามารถ')) {
+        return e; // already human-readable
+    }
+
+    // Network / timeout
+    if (e.includes('Timeout') || e.includes('timeout')) {
+        return 'หมดเวลารอ — ระบบ NAP Plus ตอบสนองช้า กรุณาลองใหม่';
+    }
+    if (e.includes('net::') || e.includes('ERR_')) {
+        return 'เชื่อมต่อระบบ NAP Plus ไม่ได้ — กรุณาตรวจสอบเครือข่าย';
+    }
+
+    // Browser crash
+    if (e.includes('Target page') || e.includes('browser has been closed')) {
+        return 'เบราว์เซอร์ขัดข้อง — ระบบกำลังรีสตาร์ท';
+    }
+
+    // Default: truncate and clean up
+    const cleaned = e.replace(/Call log:[\s\S]*/m, '').trim();
+    return cleaned.length > 100 ? cleaned.substring(0, 100) + '...' : cleaned;
+}
+
+// ============================================================
 // Duplicate org detection helpers
 // ============================================================
 
@@ -1418,10 +1504,47 @@ async function run() {
             log(jobId, `NAP display name extraction skipped: ${e.message}`);
         }
 
+        // === Session validation — abort early if login didn't work ===
+        const sessionValid = await validateNapSession(page, jobId);
+        if (!sessionValid) {
+            const sessionError = 'เซสชันหมดอายุ หรือ login ไม่สำเร็จ — กรุณา scan ThaID QR ใหม่';
+            log(jobId, `SESSION INVALID — aborting all ${total} records`);
+            await ably?.publish('job:error', {
+                jobId, total,
+                message: `❌ ${sessionError}`,
+            }, 500);
+
+            // Mark all records as failed with user-friendly message
+            for (let i = 0; i < (items || []).length; i++) {
+                const item = items[i];
+                results.push({
+                    id_card: item.id_card,
+                    uic: item.uic || '',
+                    success: false,
+                    nap_code: null,
+                    nap_lab_code: null,
+                    error: sessionError,
+                });
+                if (!isDryRun && cbUrl) {
+                    await sendCallback(cbUrl, {
+                        ...buildErrorCallback(item, jobFy, sessionError, null),
+                        nap_comment: sessionError,
+                    });
+                }
+            }
+
+            // Skip to cleanup
+            try { await workBrowser.close(); } catch {}
+            return { results, napDisplayName };
+        }
+
+        log(jobId, 'Session validated — NAP Plus ready');
+
         // Process records
         let crashRetries = 0;
         let lastCrashIndex = -1;
         const MAX_CRASH_RETRIES = 2; // max retries per record on browser crash
+        let consecutiveSessionErrors = 0; // track session errors for early abort
 
         for (let i = 0; i < (items || []).length; i++) {
             // Restart browser every BATCH_SIZE records to prevent memory leak
@@ -1820,12 +1943,52 @@ async function run() {
                     continue;
                 }
 
-                log(jobId, `  Record ${i + 1} error: ${err.message}`);
-                results.push({ id_card: item.id_card, uic, success: false, nap_code: null, nap_lab_code: null, error: err.message });
+                const rawError = err.message || '';
+                const friendlyError = humanizeError(rawError);
+
+                log(jobId, `  Record ${i + 1} error: ${rawError}`);
+                results.push({ id_card: item.id_card, uic, success: false, nap_code: null, nap_lab_code: null, error: friendlyError });
                 await ably?.publish('job:record:failed', {
-                    jobId, index: i + 1, total, error: humanError(err), uic,
-                    message: `❌ ล้มเหลว (${i + 1}/${total}) | ${humanError(err)}`,
+                    jobId, index: i + 1, total, error: friendlyError, uic,
+                    message: `❌ ล้มเหลว (${i + 1}/${total}) | ${friendlyError}`,
                 }, 300);
+
+                // === Early abort: if first 2 records both fail with session error, abort remaining ===
+                const isSessionError = rawError.includes('rrttrDate') && rawError.includes('Timeout');
+                if (isSessionError) {
+                    consecutiveSessionErrors++;
+                } else {
+                    consecutiveSessionErrors = 0;
+                }
+
+                if (consecutiveSessionErrors >= 2 && i < (items || []).length - 1) {
+                    const abortMsg = 'เซสชันหมดอายุ — ยกเลิก record ที่เหลือ (กรุณา scan ThaID QR ใหม่)';
+                    log(jobId, `EARLY ABORT: ${consecutiveSessionErrors} consecutive session errors — aborting remaining ${total - i - 1} records`);
+                    await ably?.publish('job:error', {
+                        jobId, total,
+                        message: `⚠️ ${abortMsg}`,
+                    }, 500);
+
+                    // Fill remaining records with clear error
+                    for (let j = i + 1; j < (items || []).length; j++) {
+                        const skipItem = items[j];
+                        results.push({
+                            id_card: skipItem.id_card,
+                            uic: skipItem.uic || '',
+                            success: false,
+                            nap_code: null,
+                            nap_lab_code: null,
+                            error: abortMsg,
+                        });
+                        if (!isDryRun && cbUrl) {
+                            await sendCallback(cbUrl, {
+                                ...buildErrorCallback(skipItem, jobFy, abortMsg, null),
+                                nap_comment: abortMsg,
+                            });
+                        }
+                    }
+                    break; // exit loop
+                }
             }
         }
 
