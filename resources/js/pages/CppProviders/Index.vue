@@ -6,7 +6,6 @@ import {
     MapPin,
     Phone,
     Mail,
-    Building2,
     Users,
     ChevronLeft,
     ChevronRight,
@@ -14,13 +13,13 @@ import {
     ExternalLink,
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
+import SearchableSelect from '@/components/SearchableSelect.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import SearchableSelect from '@/components/SearchableSelect.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 
@@ -98,14 +97,14 @@ const provinceOptions = computed(() =>
     Object.entries(props.facets.provinces ?? {}).map(([name, count]) => ({
         value: name,
         label: `${name} (${count})`,
-    }))
+    })),
 );
 
 const affiliationOptions = computed(() =>
     Object.entries(props.facets.affiliations ?? {}).map(([name, count]) => ({
         value: name,
         label: `${name} (${count})`,
-    }))
+    })),
 );
 
 const typeCodeOptions = computed(() =>
@@ -113,7 +112,7 @@ const typeCodeOptions = computed(() =>
         value: t.code,
         label: `[${t.code}] ${(t.name ?? '').substring(0, 60)} (${t.count})`,
         sublabel: t.name && t.name.length > 60 ? t.name : undefined,
-    }))
+    })),
 );
 
 const hasActiveFilter = computed(
@@ -124,7 +123,7 @@ const hasActiveFilter = computed(
         !!typeCode.value ||
         hasEmail.value ||
         hasCoordinator.value ||
-        hivOnly.value
+        hivOnly.value,
 );
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -141,7 +140,7 @@ function applyFilters() {
             has_coordinator: hasCoordinator.value ? 1 : undefined,
             hiv_only: hivOnly.value ? 1 : undefined,
         },
-        { preserveState: true, preserveScroll: true, replace: true }
+        { preserveState: true, preserveScroll: true, replace: true },
     );
 }
 
@@ -153,16 +152,19 @@ watch(q, () => {
     searchTimer = setTimeout(applyFilters, 400);
 });
 
-watch([province, affiliation, typeCode, hasEmail, hasCoordinator, hivOnly], (newVals) => {
-    console.log('[CPP Filter] checkbox changed:', {
-        hasEmail: hasEmail.value,
-        hasCoordinator: hasCoordinator.value,
-        hivOnly: hivOnly.value,
-        typeOfHiv: typeof hivOnly.value,
-        raw: newVals,
-    });
-    applyFilters();
-});
+watch(
+    [province, affiliation, typeCode, hasEmail, hasCoordinator, hivOnly],
+    (newVals) => {
+        console.log('[CPP Filter] checkbox changed:', {
+            hasEmail: hasEmail.value,
+            hasCoordinator: hasCoordinator.value,
+            hivOnly: hivOnly.value,
+            typeOfHiv: typeof hivOnly.value,
+            raw: newVals,
+        });
+        applyFilters();
+    },
+);
 
 function resetFilters() {
     q.value = '';
@@ -175,7 +177,9 @@ function resetFilters() {
 }
 
 function formatAddress(p: Provider): string {
-    const parts = [p.subdistrict, p.district, p.province, p.postal_code].filter(Boolean);
+    const parts = [p.subdistrict, p.district, p.province, p.postal_code].filter(
+        Boolean,
+    );
 
     return parts.join(' ');
 }
@@ -203,19 +207,30 @@ function affiliationColor(a: string | null): string {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4 md:p-6">
             <!-- Header + totals -->
-            <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div
+                class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between"
+            >
                 <div>
-                    <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    <h1
+                        class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white"
+                    >
                         หน่วยบริการ CPP
                     </h1>
                     <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                        ฐานข้อมูลหน่วยบริการภายใต้เครือข่าย สปสช. ทั้งหมด {{ totals.all.toLocaleString() }} แห่ง
-                        · กลุ่ม HIV ecosystem {{ totals.hiv_ecosystem }} แห่ง
+                        ฐานข้อมูลหน่วยบริการภายใต้เครือข่าย สปสช. ทั้งหมด
+                        {{ totals.all.toLocaleString() }} แห่ง · กลุ่ม HIV
+                        ecosystem {{ totals.hiv_ecosystem }} แห่ง
                     </p>
                 </div>
-                <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <div
+                    class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400"
+                >
                     <Filter class="h-4 w-4" />
-                    แสดง <strong class="text-slate-900 dark:text-white">{{ providers.total.toLocaleString() }}</strong> รายการ
+                    แสดง
+                    <strong class="text-slate-900 dark:text-white">{{
+                        providers.total.toLocaleString()
+                    }}</strong>
+                    รายการ
                 </div>
             </div>
 
@@ -225,9 +240,13 @@ function affiliationColor(a: string | null): string {
                     <div class="grid gap-3 md:grid-cols-4">
                         <!-- Search -->
                         <div class="md:col-span-2">
-                            <Label class="mb-1 text-xs">ค้นหา (ชื่อ / รหัส / เบอร์)</Label>
+                            <Label class="mb-1 text-xs"
+                                >ค้นหา (ชื่อ / รหัส / เบอร์)</Label
+                            >
                             <div class="relative">
-                                <Search class="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
+                                <Search
+                                    class="absolute top-2.5 left-3 h-4 w-4 text-slate-400"
+                                />
                                 <Input
                                     v-model="q"
                                     placeholder="เช่น แคร์แมท, 41936, 0812..."
@@ -240,7 +259,9 @@ function affiliationColor(a: string | null): string {
                         <div>
                             <Label class="mb-1 text-xs">
                                 จังหวัด
-                                <span class="text-slate-400">({{ provinceOptions.length }})</span>
+                                <span class="text-slate-400"
+                                    >({{ provinceOptions.length }})</span
+                                >
                             </Label>
                             <SearchableSelect
                                 v-model="province"
@@ -254,7 +275,9 @@ function affiliationColor(a: string | null): string {
                         <div>
                             <Label class="mb-1 text-xs">
                                 สังกัด
-                                <span class="text-slate-400">({{ affiliationOptions.length }})</span>
+                                <span class="text-slate-400"
+                                    >({{ affiliationOptions.length }})</span
+                                >
                             </Label>
                             <SearchableSelect
                                 v-model="affiliation"
@@ -270,7 +293,9 @@ function affiliationColor(a: string | null): string {
                         <div class="md:col-span-2">
                             <Label class="mb-1 text-xs">
                                 ประเภทหน่วยบริการ
-                                <span class="text-slate-400">({{ typeCodeOptions.length }})</span>
+                                <span class="text-slate-400"
+                                    >({{ typeCodeOptions.length }})</span
+                                >
                             </Label>
                             <SearchableSelect
                                 v-model="typeCode"
@@ -286,19 +311,34 @@ function affiliationColor(a: string | null): string {
                             <div class="flex flex-wrap items-center gap-4">
                                 <div class="flex items-center gap-2">
                                     <Checkbox id="hiv_only" v-model="hivOnly" />
-                                    <label for="hiv_only" class="cursor-pointer text-sm">
+                                    <label
+                                        for="hiv_only"
+                                        class="cursor-pointer text-sm"
+                                    >
                                         🎯 HIV ecosystem เท่านั้น
                                     </label>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <Checkbox id="has_email" v-model="hasEmail" />
-                                    <label for="has_email" class="cursor-pointer text-sm">
+                                    <Checkbox
+                                        id="has_email"
+                                        v-model="hasEmail"
+                                    />
+                                    <label
+                                        for="has_email"
+                                        class="cursor-pointer text-sm"
+                                    >
                                         📧 มี email
                                     </label>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <Checkbox id="has_coord" v-model="hasCoordinator" />
-                                    <label for="has_coord" class="cursor-pointer text-sm">
+                                    <Checkbox
+                                        id="has_coord"
+                                        v-model="hasCoordinator"
+                                    />
+                                    <label
+                                        for="has_coord"
+                                        class="cursor-pointer text-sm"
+                                    >
                                         👥 มีผู้ประสานงาน
                                     </label>
                                 </div>
@@ -306,7 +346,9 @@ function affiliationColor(a: string | null): string {
                         </div>
                     </div>
 
-                    <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <div
+                        class="mt-3 flex flex-wrap items-center justify-between gap-2"
+                    >
                         <div class="flex flex-wrap items-center gap-2 text-sm">
                             <Badge
                                 v-if="hasActiveFilter"
@@ -316,10 +358,20 @@ function affiliationColor(a: string | null): string {
                                 <Filter class="mr-1 h-3 w-3" />
                                 Filter active
                             </Badge>
-                            <span class="font-medium text-slate-700 dark:text-slate-300">
-                                พบ <span class="text-lg font-bold text-teal-600 dark:text-teal-400">{{ providers.total.toLocaleString() }}</span>
+                            <span
+                                class="font-medium text-slate-700 dark:text-slate-300"
+                            >
+                                พบ
+                                <span
+                                    class="text-lg font-bold text-teal-600 dark:text-teal-400"
+                                    >{{
+                                        providers.total.toLocaleString()
+                                    }}</span
+                                >
                                 <span class="text-slate-500">
-                                    จาก {{ totals.all.toLocaleString() }} หน่วยบริการ
+                                    จาก
+                                    {{ totals.all.toLocaleString() }}
+                                    หน่วยบริการ
                                 </span>
                             </span>
                         </div>
@@ -341,14 +393,24 @@ function affiliationColor(a: string | null): string {
                 <CardContent class="p-0">
                     <div class="overflow-x-auto">
                         <table class="w-full">
-                            <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium text-slate-500 uppercase dark:border-slate-800 dark:bg-slate-900/50">
+                            <thead
+                                class="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium text-slate-500 uppercase dark:border-slate-800 dark:bg-slate-900/50"
+                            >
                                 <tr>
                                     <th class="px-4 py-3">Hcode</th>
                                     <th class="px-4 py-3">ชื่อ</th>
-                                    <th class="px-4 py-3 hidden md:table-cell">สังกัด</th>
-                                    <th class="px-4 py-3 hidden lg:table-cell">ที่อยู่</th>
-                                    <th class="px-4 py-3 hidden md:table-cell">ติดต่อ</th>
-                                    <th class="px-4 py-3 text-right">ดูรายละเอียด</th>
+                                    <th class="hidden px-4 py-3 md:table-cell">
+                                        สังกัด
+                                    </th>
+                                    <th class="hidden px-4 py-3 lg:table-cell">
+                                        ที่อยู่
+                                    </th>
+                                    <th class="hidden px-4 py-3 md:table-cell">
+                                        ติดต่อ
+                                    </th>
+                                    <th class="px-4 py-3 text-right">
+                                        ดูรายละเอียด
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -357,62 +419,97 @@ function affiliationColor(a: string | null): string {
                                     :key="p.id"
                                     class="border-b border-slate-100 text-sm hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900/50"
                                 >
-                                    <td class="px-4 py-3 font-mono text-xs font-medium text-slate-700 dark:text-slate-300">
+                                    <td
+                                        class="px-4 py-3 font-mono text-xs font-medium text-slate-700 dark:text-slate-300"
+                                    >
                                         {{ p.hcode }}
                                     </td>
                                     <td class="px-4 py-3">
-                                        <div class="font-medium text-slate-900 dark:text-white">
+                                        <div
+                                            class="font-medium text-slate-900 dark:text-white"
+                                        >
                                             {{ p.name }}
                                         </div>
-                                        <div class="mt-0.5 flex items-center gap-2 text-xs text-slate-500 md:hidden">
+                                        <div
+                                            class="mt-0.5 flex items-center gap-2 text-xs text-slate-500 md:hidden"
+                                        >
                                             <MapPin class="h-3 w-3" />
                                             {{ p.province ?? '-' }}
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3 hidden md:table-cell">
+                                    <td class="hidden px-4 py-3 md:table-cell">
                                         <Badge
                                             v-if="p.affiliation"
-                                            :class="affiliationColor(p.affiliation)"
+                                            :class="
+                                                affiliationColor(p.affiliation)
+                                            "
                                             class="text-xs"
                                             variant="secondary"
                                         >
                                             {{ p.affiliation }}
                                         </Badge>
-                                        <span v-else class="text-xs text-slate-400">-</span>
+                                        <span
+                                            v-else
+                                            class="text-xs text-slate-400"
+                                            >-</span
+                                        >
                                     </td>
-                                    <td class="px-4 py-3 hidden lg:table-cell text-xs text-slate-600 dark:text-slate-400">
+                                    <td
+                                        class="hidden px-4 py-3 text-xs text-slate-600 lg:table-cell dark:text-slate-400"
+                                    >
                                         {{ formatAddress(p) || '-' }}
                                     </td>
-                                    <td class="px-4 py-3 hidden md:table-cell text-xs">
-                                        <div v-if="p.phone" class="flex items-center gap-1 text-slate-600 dark:text-slate-400">
+                                    <td
+                                        class="hidden px-4 py-3 text-xs md:table-cell"
+                                    >
+                                        <div
+                                            v-if="p.phone"
+                                            class="flex items-center gap-1 text-slate-600 dark:text-slate-400"
+                                        >
                                             <Phone class="h-3 w-3" />
                                             {{ p.phone }}
                                         </div>
-                                        <div v-if="p.uc_email" class="mt-0.5 flex items-center gap-1 text-slate-500">
+                                        <div
+                                            v-if="p.uc_email"
+                                            class="mt-0.5 flex items-center gap-1 text-slate-500"
+                                        >
                                             <Mail class="h-3 w-3" />
                                             {{ p.uc_email }}
                                         </div>
-                                        <div v-if="p.coordinators_count > 0" class="mt-0.5 flex items-center gap-1 text-teal-600">
+                                        <div
+                                            v-if="p.coordinators_count > 0"
+                                            class="mt-0.5 flex items-center gap-1 text-teal-600"
+                                        >
                                             <Users class="h-3 w-3" />
-                                            {{ p.coordinators_count }} ผู้ประสานงาน
+                                            {{ p.coordinators_count }}
+                                            ผู้ประสานงาน
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 text-right">
-                                        <Button as-child size="sm" variant="outline">
+                                        <Button
+                                            as-child
+                                            size="sm"
+                                            variant="outline"
+                                        >
                                             <a
                                                 :href="`/cpp-providers/${p.hcode}`"
                                                 target="_blank"
                                                 rel="noopener"
                                             >
                                                 ดู
-                                                <ExternalLink class="ml-1 h-3 w-3" />
+                                                <ExternalLink
+                                                    class="ml-1 h-3 w-3"
+                                                />
                                             </a>
                                         </Button>
                                     </td>
                                 </tr>
 
                                 <tr v-if="providers.data.length === 0">
-                                    <td colspan="6" class="px-4 py-12 text-center text-sm text-slate-500">
+                                    <td
+                                        colspan="6"
+                                        class="px-4 py-12 text-center text-sm text-slate-500"
+                                    >
                                         ไม่พบหน่วยบริการที่ตรงกับเงื่อนไข
                                     </td>
                                 </tr>
@@ -423,9 +520,13 @@ function affiliationColor(a: string | null): string {
             </Card>
 
             <!-- Pagination -->
-            <div v-if="providers.last_page > 1" class="flex flex-col items-center justify-between gap-3 sm:flex-row">
+            <div
+                v-if="providers.last_page > 1"
+                class="flex flex-col items-center justify-between gap-3 sm:flex-row"
+            >
                 <div class="text-sm text-slate-500 dark:text-slate-400">
-                    {{ providers.from }}-{{ providers.to }} จาก {{ providers.total.toLocaleString() }}
+                    {{ providers.from }}-{{ providers.to }} จาก
+                    {{ providers.total.toLocaleString() }}
                 </div>
                 <div class="flex items-center gap-1">
                     <Button
@@ -438,15 +539,29 @@ function affiliationColor(a: string | null): string {
                         class="min-w-9"
                     >
                         <Link v-if="link.url" :href="link.url" preserve-scroll>
-                            <span v-if="link.label.includes('Previous') || link.label === '&laquo; Previous'">
+                            <span
+                                v-if="
+                                    link.label.includes('Previous') ||
+                                    link.label === '&laquo; Previous'
+                                "
+                            >
                                 <ChevronLeft class="h-4 w-4" />
                             </span>
-                            <span v-else-if="link.label.includes('Next') || link.label === 'Next &raquo;'">
+                            <span
+                                v-else-if="
+                                    link.label.includes('Next') ||
+                                    link.label === 'Next &raquo;'
+                                "
+                            >
                                 <ChevronRight class="h-4 w-4" />
                             </span>
                             <span v-else v-html="link.label"></span>
                         </Link>
-                        <span v-else class="px-2 opacity-40" v-html="link.label"></span>
+                        <span
+                            v-else
+                            class="px-2 opacity-40"
+                            v-html="link.label"
+                        ></span>
                     </Button>
                 </div>
             </div>

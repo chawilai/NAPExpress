@@ -21,7 +21,7 @@ const props = withDefaults(
         searchPlaceholder: 'ค้นหา...',
         emptyMessage: 'ไม่พบข้อมูล',
         clearable: true,
-    }
+    },
 );
 
 const model = defineModel<string>({ default: '' });
@@ -44,12 +44,13 @@ const filtered = computed(() => {
         (o) =>
             o.label.toLowerCase().includes(q) ||
             o.value.toLowerCase().includes(q) ||
-            (o.sublabel && o.sublabel.toLowerCase().includes(q))
+            (o.sublabel && o.sublabel.toLowerCase().includes(q)),
     );
 });
 
 const selectedLabel = computed(() => {
     const found = props.options.find((o) => o.value === model.value);
+
     return found?.label ?? '';
 });
 
@@ -109,13 +110,15 @@ onUnmounted(() => {
     <div ref="wrapper" class="relative">
         <button
             type="button"
-            class="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white transition-colors hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700"
+            class="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white transition-colors hover:border-slate-300 focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:outline-none dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700"
             @click="toggle"
         >
             <span
                 :class="[
                     'truncate text-left',
-                    selectedLabel ? 'text-slate-900 dark:text-white' : 'text-slate-400',
+                    selectedLabel
+                        ? 'text-slate-900 dark:text-white'
+                        : 'text-slate-400',
                 ]"
             >
                 {{ selectedLabel || placeholder }}
@@ -148,17 +151,21 @@ onUnmounted(() => {
         >
             <div
                 v-if="open"
-                class="absolute left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-950"
+                class="absolute right-0 left-0 z-50 mt-1 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-950"
             >
                 <!-- Search input -->
-                <div class="relative border-b border-slate-100 dark:border-slate-800">
-                    <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <div
+                    class="relative border-b border-slate-100 dark:border-slate-800"
+                >
+                    <Search
+                        class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    />
                     <input
                         ref="searchInput"
                         v-model="query"
                         type="text"
                         :placeholder="searchPlaceholder"
-                        class="w-full bg-transparent py-2.5 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:outline-none"
+                        class="w-full bg-transparent py-2.5 pr-3 pl-9 text-sm placeholder:text-slate-400 focus:outline-none"
                     />
                 </div>
 
@@ -186,12 +193,17 @@ onUnmounted(() => {
                         <Check
                             :class="[
                                 'mt-0.5 h-4 w-4 flex-shrink-0',
-                                model === opt.value ? 'opacity-100' : 'opacity-0',
+                                model === opt.value
+                                    ? 'opacity-100'
+                                    : 'opacity-0',
                             ]"
                         />
                         <div class="min-w-0 flex-1">
                             <div class="truncate">{{ opt.label }}</div>
-                            <div v-if="opt.sublabel" class="truncate text-xs text-slate-500">
+                            <div
+                                v-if="opt.sublabel"
+                                class="truncate text-xs text-slate-500"
+                            >
                                 {{ opt.sublabel }}
                             </div>
                         </div>
@@ -202,7 +214,12 @@ onUnmounted(() => {
                     v-if="filtered.length > 0"
                     class="border-t border-slate-100 px-3 py-1.5 text-right text-xs text-slate-400 dark:border-slate-800"
                 >
-                    {{ filtered.length }} {{ filtered.length === options.length ? 'รายการ' : `จาก ${options.length}` }}
+                    {{ filtered.length }}
+                    {{
+                        filtered.length === options.length
+                            ? 'รายการ'
+                            : `จาก ${options.length}`
+                    }}
                 </div>
             </div>
         </Transition>

@@ -30,16 +30,24 @@ const toc = [
             <div class="callout callout-teal">
                 <h3 class="mt-0 mb-2 text-lg font-bold">🎯 สรุปสั้น (TL;DR)</h3>
                 <p class="mb-3">
-                    AutoNAP <strong>ไม่เก็บข้อมูลผู้รับบริการของคลินิก</strong> ที่ท่าน upload มาประมวลผล เก็บไว้เฉพาะ:
+                    AutoNAP
+                    <strong>ไม่เก็บข้อมูลผู้รับบริการของคลินิก</strong> ที่ท่าน
+                    upload มาประมวลผล เก็บไว้เฉพาะ:
                 </p>
                 <ul class="mb-3">
-                    <li>✅ <strong>เลข 4 ตัวท้าย</strong>ของเลขประจำตัวประชาชน (xxxx1234)</li>
+                    <li>
+                        ✅ <strong>เลข 4 ตัวท้าย</strong>ของเลขประจำตัวประชาชน
+                        (xxxx1234)
+                    </li>
                     <li>✅ <strong>รหัส NAP</strong> ที่ได้จากระบบ สปสช.</li>
                     <li>✅ <strong>เวลาและสถานะ</strong>การประมวลผล</li>
                 </ul>
                 <p class="mb-0">
-                    <strong>ไม่เก็บ:</strong> ชื่อ-นามสกุล, เบอร์โทร, ที่อยู่, อีเมล, ข้อมูลการแพทย์<br />
-                    ข้อมูล audit ข้างต้นถูก<strong>ลบอัตโนมัติหลัง 90 วัน</strong>
+                    <strong>ไม่เก็บ:</strong> ชื่อ-นามสกุล, เบอร์โทร, ที่อยู่,
+                    อีเมล, ข้อมูลการแพทย์<br />
+                    ข้อมูล audit ข้างต้นถูก<strong
+                        >ลบอัตโนมัติหลัง 90 วัน</strong
+                    >
                 </p>
             </div>
         </section>
@@ -50,25 +58,34 @@ const toc = [
 
             <h3>1.1 ผู้ให้บริการ</h3>
             <p>
-                <strong>AutoNAP</strong> เป็นบริการ automation ที่ช่วยให้หน่วยบริการสุขภาพในเครือข่าย สปสช.
+                <strong>AutoNAP</strong> เป็นบริการ automation
+                ที่ช่วยให้หน่วยบริการสุขภาพในเครือข่าย สปสช.
                 สามารถบันทึกข้อมูลเข้าระบบ NAP Plus ได้อย่างอัตโนมัติ
             </p>
             <ul>
                 <li><strong>ชื่อนิติบุคคล:</strong> [จะระบุเมื่อทางการ]</li>
                 <li><strong>ที่ตั้ง:</strong> ประเทศไทย</li>
-                <li><strong>อีเมลติดต่อ:</strong> <a href="mailto:privacy@autonap.co.th">privacy@autonap.co.th</a></li>
-                <li><strong>DPO (Data Protection Officer):</strong> [จะระบุ]</li>
+                <li>
+                    <strong>อีเมลติดต่อ:</strong>
+                    <a href="mailto:privacy@autonap.co.th"
+                        >privacy@autonap.co.th</a
+                    >
+                </li>
+                <li>
+                    <strong>DPO (Data Protection Officer):</strong> [จะระบุ]
+                </li>
             </ul>
 
             <h3>1.2 บทบาทของเรา</h3>
             <ul>
                 <li>
-                    <strong>ในฐานะผู้ประมวลผล (Data Processor):</strong> สำหรับข้อมูลผู้รับบริการของคลินิก
-                    (ปลายทางคือ NAP Plus)
+                    <strong>ในฐานะผู้ประมวลผล (Data Processor):</strong>
+                    สำหรับข้อมูลผู้รับบริการของคลินิก (ปลายทางคือ NAP Plus)
                 </li>
                 <li>
-                    <strong>ในฐานะผู้ควบคุมข้อมูล (Data Controller):</strong> สำหรับข้อมูลบัญชีและการใช้งานของลูกค้า
-                    (คลินิก/มูลนิธิ) ที่สมัครใช้บริการ
+                    <strong>ในฐานะผู้ควบคุมข้อมูล (Data Controller):</strong>
+                    สำหรับข้อมูลบัญชีและการใช้งานของลูกค้า (คลินิก/มูลนิธิ)
+                    ที่สมัครใช้บริการ
                 </li>
             </ul>
         </section>
@@ -80,12 +97,16 @@ const toc = [
             <h3>2.1 ข้อมูลผู้รับบริการของคลินิก (End users ของคลินิก)</h3>
             <div class="callout callout-teal">
                 <p class="m-0">
-                    📌 <strong>หลักการสำคัญ:</strong> เราใช้ "Process-then-forget" — ประมวลผลแล้วลบทิ้ง
+                    📌 <strong>หลักการสำคัญ:</strong> เราใช้
+                    "Process-then-forget" — ประมวลผลแล้วลบทิ้ง
                 </p>
             </div>
 
             <h4>🔄 ข้อมูลที่ประมวลผลชั่วคราว (In-memory เท่านั้น)</h4>
-            <p>ในระหว่างการประมวลผลแต่ละ job เรา<strong>เข้าถึงข้อมูลเหล่านี้ชั่วคราว</strong>:</p>
+            <p>
+                ในระหว่างการประมวลผลแต่ละ job
+                เรา<strong>เข้าถึงข้อมูลเหล่านี้ชั่วคราว</strong>:
+            </p>
             <ul>
                 <li>เลขประจำตัวประชาชน 13 หลัก</li>
                 <li>UIC (รหัสผู้รับบริการของคลินิก)</li>
@@ -95,11 +116,16 @@ const toc = [
                 <li>ข้อมูลอื่นในฟอร์ม NAP</li>
             </ul>
             <p>
-                <strong>ข้อมูลเหล่านี้ถูกลบออกจากระบบทันทีหลังประมวลผลเสร็จสิ้น</strong> และไม่เก็บใน database
+                <strong
+                    >ข้อมูลเหล่านี้ถูกลบออกจากระบบทันทีหลังประมวลผลเสร็จสิ้น</strong
+                >
+                และไม่เก็บใน database
             </p>
 
             <h4>💾 ข้อมูลที่เก็บรักษา (Audit log)</h4>
-            <p>เราเก็บเฉพาะข้อมูลต่อไปนี้เพื่อให้ท่านสามารถตรวจสอบย้อนหลังได้:</p>
+            <p>
+                เราเก็บเฉพาะข้อมูลต่อไปนี้เพื่อให้ท่านสามารถตรวจสอบย้อนหลังได้:
+            </p>
             <table>
                 <thead>
                     <tr>
@@ -131,7 +157,8 @@ const toc = [
                 </tbody>
             </table>
             <p>
-                <strong>ระยะเวลาเก็บ: 90 วัน</strong> หลังจากนั้นระบบจะลบอัตโนมัติ
+                <strong>ระยะเวลาเก็บ: 90 วัน</strong>
+                หลังจากนั้นระบบจะลบอัตโนมัติ
             </p>
 
             <h4>❌ ข้อมูลที่เราไม่เก็บ</h4>
@@ -156,7 +183,10 @@ const toc = [
                 <li>ข้อมูลสำหรับออกใบเสร็จ (ที่อยู่, เลขผู้เสียภาษี)</li>
                 <li>ข้อมูลการเข้าใช้งานระบบ (login log)</li>
             </ul>
-            <p><strong>ระยะเวลาเก็บ:</strong> ตลอดระยะเวลาสัญญา + 5 ปี ตามกฎหมายภาษี</p>
+            <p>
+                <strong>ระยะเวลาเก็บ:</strong> ตลอดระยะเวลาสัญญา + 5 ปี
+                ตามกฎหมายภาษี
+            </p>
         </section>
 
         <!-- 3. ThaID -->
@@ -165,14 +195,19 @@ const toc = [
 
             <h3>3.1 อย่างไร</h3>
             <p>
-                AutoNAP รองรับการ login เข้าระบบ NAP Plus ผ่าน <strong>ThaID</strong>
+                AutoNAP รองรับการ login เข้าระบบ NAP Plus ผ่าน
+                <strong>ThaID</strong>
                 ซึ่งเป็นระบบยืนยันตัวตนอย่างเป็นทางการของรัฐ
             </p>
 
             <h3>3.2 ประโยชน์ด้านความปลอดภัย</h3>
             <ul>
                 <li>✅ เราไม่เก็บ password ของท่าน</li>
-                <li>✅ ผู้ใช้ยืนยันตัวตนและอนุญาตการเข้าใช้งาน<strong>ทุกครั้ง</strong></li>
+                <li>
+                    ✅ ผู้ใช้ยืนยันตัวตนและอนุญาตการเข้าใช้งาน<strong
+                        >ทุกครั้ง</strong
+                    >
+                </li>
                 <li>✅ ใช้ระบบของรัฐที่มีมาตรฐาน security สูง</li>
                 <li>✅ สามารถยกเลิกการอนุญาตได้เมื่อต้องการ</li>
             </ul>
@@ -180,7 +215,9 @@ const toc = [
             <h3>3.3 AutoNAP ไม่ทำ</h3>
             <ul>
                 <li>❌ ไม่เก็บ ThaID credentials</li>
-                <li>❌ ไม่ดึงข้อมูลส่วนตัวจาก ThaID นอกจากที่จำเป็นต่อการ login</li>
+                <li>
+                    ❌ ไม่ดึงข้อมูลส่วนตัวจาก ThaID นอกจากที่จำเป็นต่อการ login
+                </li>
                 <li>❌ ไม่ใช้ ThaID เพื่อวัตถุประสงค์อื่น</li>
             </ul>
         </section>
@@ -192,8 +229,14 @@ const toc = [
 
             <h3>4.1 ข้อมูลผู้รับบริการ</h3>
             <ul>
-                <li><strong>วัตถุประสงค์เดียว:</strong> บันทึกเข้าระบบ NAP Plus ของ สปสช. ตามภารกิจของคลินิก</li>
-                <li><strong>ระยะเวลา:</strong> ในขณะประมวลผลเท่านั้น (ข้อมูลเต็ม) + 90 วัน (audit log)</li>
+                <li>
+                    <strong>วัตถุประสงค์เดียว:</strong> บันทึกเข้าระบบ NAP Plus
+                    ของ สปสช. ตามภารกิจของคลินิก
+                </li>
+                <li>
+                    <strong>ระยะเวลา:</strong> ในขณะประมวลผลเท่านั้น
+                    (ข้อมูลเต็ม) + 90 วัน (audit log)
+                </li>
             </ul>
 
             <h3>4.2 ข้อมูลบัญชีลูกค้า</h3>
@@ -201,7 +244,9 @@ const toc = [
                 <li>ให้บริการและจัดการบัญชี</li>
                 <li>ออกใบเสร็จและใบแจ้งหนี้</li>
                 <li>สนับสนุนลูกค้า (customer support)</li>
-                <li>แจ้งข่าวสารที่เกี่ยวข้องกับบริการ (เช่น update, maintenance)</li>
+                <li>
+                    แจ้งข่าวสารที่เกี่ยวข้องกับบริการ (เช่น update, maintenance)
+                </li>
             </ul>
         </section>
 
@@ -215,7 +260,10 @@ const toc = [
             </div>
             <ul>
                 <li>❌ ขายข้อมูลให้บุคคลที่สามใดๆ</li>
-                <li>❌ ใช้ข้อมูลเพื่อการตลาด (นอกจากแจ้งข่าว product แก่ลูกค้าเอง)</li>
+                <li>
+                    ❌ ใช้ข้อมูลเพื่อการตลาด (นอกจากแจ้งข่าว product
+                    แก่ลูกค้าเอง)
+                </li>
                 <li>❌ ใช้ข้อมูลผู้รับบริการเพื่อ train AI model</li>
                 <li>❌ วิเคราะห์ข้อมูลเชิงลึกเพื่อ benchmark หรือเผยแพร่</li>
                 <li>❌ โอนข้อมูลออกนอกประเทศไทยโดยไม่ได้รับความยินยอม</li>
@@ -231,11 +279,15 @@ const toc = [
 
             <h3>6.1 NHSO (สปสช.)</h3>
             <p>
-                เราส่งข้อมูลเคสเข้าระบบ <strong>NAP Plus ของ สปสช.</strong> — นี่คือวัตถุประสงค์หลักของบริการ
+                เราส่งข้อมูลเคสเข้าระบบ <strong>NAP Plus ของ สปสช.</strong> —
+                นี่คือวัตถุประสงค์หลักของบริการ
             </p>
 
             <h3>6.2 Sub-Processors</h3>
-            <p>เราใช้ผู้ให้บริการ infrastructure ที่จำเป็น (ทั้งหมดตั้งอยู่ในประเทศไทย หรือเฉพาะ metadata ที่ไม่มี PII):</p>
+            <p>
+                เราใช้ผู้ให้บริการ infrastructure ที่จำเป็น
+                (ทั้งหมดตั้งอยู่ในประเทศไทย หรือเฉพาะ metadata ที่ไม่มี PII):
+            </p>
             <table>
                 <thead>
                     <tr>
@@ -265,7 +317,8 @@ const toc = [
 
             <h3>6.3 หน่วยงานของรัฐ</h3>
             <p>
-                เราอาจเปิดเผยข้อมูลตามคำสั่งศาลหรือกฎหมาย — ในกรณีเช่นนั้น เราจะแจ้งท่านล่วงหน้าหากกฎหมายอนุญาต
+                เราอาจเปิดเผยข้อมูลตามคำสั่งศาลหรือกฎหมาย — ในกรณีเช่นนั้น
+                เราจะแจ้งท่านล่วงหน้าหากกฎหมายอนุญาต
             </p>
         </section>
 
@@ -273,12 +326,14 @@ const toc = [
         <section id="localization">
             <h2>7. ที่ตั้งของข้อมูล (Data Localization)</h2>
             <p>
-                ข้อมูลทั้งหมดของ AutoNAP <strong>จัดเก็บบน server ในประเทศไทย</strong>
+                ข้อมูลทั้งหมดของ AutoNAP
+                <strong>จัดเก็บบน server ในประเทศไทย</strong>
                 เราไม่ถ่ายโอนข้อมูลออกนอกประเทศโดยไม่ได้รับความยินยอม
             </p>
             <p>
-                ข้อยกเว้น: metadata เล็กน้อยของ realtime service (Ably) อาจผ่าน CDN ระดับโลก
-                แต่เป็นข้อมูลที่<strong>ไม่มี PII</strong> (เช่น progress percentage, status code)
+                ข้อยกเว้น: metadata เล็กน้อยของ realtime service (Ably) อาจผ่าน
+                CDN ระดับโลก แต่เป็นข้อมูลที่<strong>ไม่มี PII</strong> (เช่น
+                progress percentage, status code)
             </p>
         </section>
 
@@ -348,12 +403,21 @@ const toc = [
                     </tr>
                     <tr>
                         <td><strong>Right to Complain</strong></td>
-                        <td>ร้องเรียนต่อ PDPC ได้ที่ <a href="https://www.pdpc.or.th" target="_blank" rel="noopener">pdpc.or.th</a></td>
+                        <td>
+                            ร้องเรียนต่อ PDPC ได้ที่
+                            <a
+                                href="https://www.pdpc.or.th"
+                                target="_blank"
+                                rel="noopener"
+                                >pdpc.or.th</a
+                            >
+                        </td>
                     </tr>
                 </tbody>
             </table>
             <p>
-                ติดต่อเพื่อใช้สิทธิ์ได้ที่ <a href="mailto:privacy@autonap.co.th">privacy@autonap.co.th</a>
+                ติดต่อเพื่อใช้สิทธิ์ได้ที่
+                <a href="mailto:privacy@autonap.co.th">privacy@autonap.co.th</a>
             </p>
         </section>
 
@@ -364,12 +428,14 @@ const toc = [
             <h3>10.1 Cookies ที่เราใช้</h3>
             <ul>
                 <li>
-                    <strong>Essential cookies:</strong> จำเป็นสำหรับการทำงานของระบบ (session, authentication)
-                    — ไม่ต้องขอความยินยอม
+                    <strong>Essential cookies:</strong>
+                    จำเป็นสำหรับการทำงานของระบบ (session, authentication) —
+                    ไม่ต้องขอความยินยอม
                 </li>
                 <li>
-                    <strong>Analytics cookies:</strong> (optional) เก็บสถิติการใช้งาน อาจใช้ Plausible
-                    (privacy-friendly, ไม่มี PII) — ขอความยินยอมก่อนใช้
+                    <strong>Analytics cookies:</strong> (optional)
+                    เก็บสถิติการใช้งาน อาจใช้ Plausible (privacy-friendly, ไม่มี
+                    PII) — ขอความยินยอมก่อนใช้
                 </li>
             </ul>
 
@@ -389,22 +455,38 @@ const toc = [
             <ul>
                 <li>
                     <strong>อีเมล (ทั่วไป):</strong>
-                    <a href="mailto:privacy@autonap.co.th">privacy@autonap.co.th</a>
+                    <a href="mailto:privacy@autonap.co.th"
+                        >privacy@autonap.co.th</a
+                    >
                 </li>
                 <li>
                     <strong>อีเมล (รายงานเหตุการณ์):</strong>
-                    <a href="mailto:incident@autonap.co.th">incident@autonap.co.th</a>
+                    <a href="mailto:incident@autonap.co.th"
+                        >incident@autonap.co.th</a
+                    >
                 </li>
                 <li><strong>DPO:</strong> [จะระบุเมื่อทางการ]</li>
                 <li><strong>ที่อยู่:</strong> [จะระบุเมื่อทางการ]</li>
             </ul>
 
             <h3>การร้องเรียน</h3>
-            <p>หากท่านไม่พอใจกับวิธีที่เราประมวลผลข้อมูล ท่านสามารถร้องเรียนต่อ:</p>
+            <p>
+                หากท่านไม่พอใจกับวิธีที่เราประมวลผลข้อมูล
+                ท่านสามารถร้องเรียนต่อ:
+            </p>
             <div class="callout callout-teal">
                 <p class="m-0">
-                    <strong>สำนักงานคณะกรรมการคุ้มครองข้อมูลส่วนบุคคล (PDPC)</strong><br />
-                    เว็บไซต์: <a href="https://www.pdpc.or.th" target="_blank" rel="noopener">pdpc.or.th</a><br />
+                    <strong
+                        >สำนักงานคณะกรรมการคุ้มครองข้อมูลส่วนบุคคล
+                        (PDPC)</strong
+                    ><br />
+                    เว็บไซต์:
+                    <a
+                        href="https://www.pdpc.or.th"
+                        target="_blank"
+                        rel="noopener"
+                        >pdpc.or.th</a
+                    ><br />
                     อีเมล: saraban@pdpc.or.th<br />
                     โทรศัพท์: 02-142-1033
                 </p>
@@ -413,7 +495,8 @@ const toc = [
             <hr class="my-10 border-slate-200 dark:border-slate-800" />
 
             <p class="text-sm text-slate-500 italic">
-                ✍️ โดยการใช้บริการ AutoNAP ท่านรับทราบและยอมรับนโยบายความเป็นส่วนตัวนี้
+                ✍️ โดยการใช้บริการ AutoNAP
+                ท่านรับทราบและยอมรับนโยบายความเป็นส่วนตัวนี้
             </p>
         </section>
     </LegalLayout>

@@ -31,8 +31,12 @@ const fullscreen = ref(false);
             ]"
         >
             <!-- Toolbar -->
-            <div class="flex items-center justify-between border-b border-slate-200 px-4 py-2 dark:border-slate-800">
-                <div class="text-sm font-medium text-slate-600 dark:text-slate-400">
+            <div
+                class="flex items-center justify-between border-b border-slate-200 px-4 py-2 dark:border-slate-800"
+            >
+                <div
+                    class="text-sm font-medium text-slate-600 dark:text-slate-400"
+                >
                     AutoNAP Realtime Monitor
                 </div>
                 <div class="flex items-center gap-2">
@@ -51,7 +55,7 @@ const fullscreen = ref(false);
             <!-- Embedded blade dashboard -->
             <iframe
                 :src="embedUrl"
-                class="flex-1 w-full border-0"
+                class="w-full flex-1 border-0"
                 title="AutoNAP Realtime Monitor"
                 allow="autoplay"
             ></iframe>

@@ -6,13 +6,10 @@ import {
     Phone,
     Mail,
     MapPin,
-    Globe,
     Users,
     Shield,
-    Calendar,
     Hash,
     ExternalLink,
-    Clock,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { Badge } from '@/components/ui/badge';
@@ -81,13 +78,25 @@ const props = defineProps<{
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'หน่วยบริการ CPP', href: '/cpp-providers' },
-    { title: props.provider.name, href: `/cpp-providers/${props.provider.hcode}` },
+    {
+        title: props.provider.name,
+        href: `/cpp-providers/${props.provider.hcode}`,
+    },
 ];
 
 const thaiMonths = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน',
-    'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม',
-    'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+    'มกราคม',
+    'กุมภาพันธ์',
+    'มีนาคม',
+    'เมษายน',
+    'พฤษภาคม',
+    'มิถุนายน',
+    'กรกฎาคม',
+    'สิงหาคม',
+    'กันยายน',
+    'ตุลาคม',
+    'พฤศจิกายน',
+    'ธันวาคม',
 ];
 
 function formatThaiDate(dateStr: string | null): string {
@@ -205,12 +214,17 @@ const fullAddress = computed(() => {
     return parts.join(' ');
 });
 
-const isHivRelated = computed(() =>
-    props.provider.network_types.some((n) => n.type_code === 'R0216') ||
-    /ฟ้าสีรุ้ง|เอ็มพลัส|แคร์แมท|สวิง|ซิสเตอร์|เอ็มเฟรนด์/.test(props.provider.name)
+const isHivRelated = computed(
+    () =>
+        props.provider.network_types.some((n) => n.type_code === 'R0216') ||
+        /ฟ้าสีรุ้ง|เอ็มพลัส|แคร์แมท|สวิง|ซิสเตอร์|เอ็มเฟรนด์/.test(
+            props.provider.name,
+        ),
 );
 
-const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.provider.hcode}`);
+const cppUrl = computed(
+    () => `https://cpp.nhso.go.th/profile/?hcode=${props.provider.hcode}`,
+);
 </script>
 
 <template>
@@ -227,25 +241,42 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                     </Link>
                 </Button>
 
-                <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div
+                    class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
+                >
                     <div class="flex flex-col gap-2">
                         <div class="flex items-center gap-2">
                             <Hash class="h-4 w-4 text-slate-400" />
-                            <span class="font-mono text-sm font-medium text-slate-500 dark:text-slate-400">
+                            <span
+                                class="font-mono text-sm font-medium text-slate-500 dark:text-slate-400"
+                            >
                                 {{ provider.hcode }}
                             </span>
-                            <Badge v-if="isHivRelated" class="bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300" variant="secondary">
+                            <Badge
+                                v-if="isHivRelated"
+                                class="bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                                variant="secondary"
+                            >
                                 🎯 HIV Ecosystem
                             </Badge>
                         </div>
-                        <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white md:text-3xl">
+                        <h1
+                            class="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl dark:text-white"
+                        >
                             {{ provider.name }}
                         </h1>
                         <div class="flex flex-wrap items-center gap-2">
-                            <Badge v-if="provider.affiliation" variant="outline">
+                            <Badge
+                                v-if="provider.affiliation"
+                                variant="outline"
+                            >
                                 {{ provider.affiliation }}
                             </Badge>
-                            <Badge v-if="provider.registration_type" variant="outline" class="text-xs">
+                            <Badge
+                                v-if="provider.registration_type"
+                                variant="outline"
+                                class="text-xs"
+                            >
                                 {{ provider.registration_type }}
                             </Badge>
                             <Badge
@@ -259,7 +290,11 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                         </div>
                     </div>
                     <Button as-child variant="outline" size="sm">
-                        <a :href="cppUrl" target="_blank" rel="noopener noreferrer">
+                        <a
+                            :href="cppUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
                             <ExternalLink class="mr-1 h-4 w-4" />
                             ดูใน CPP ของ สปสช.
                         </a>
@@ -277,34 +312,80 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <dl class="grid gap-y-3 gap-x-4 text-sm md:grid-cols-2">
+                        <dl class="grid gap-x-4 gap-y-3 text-sm md:grid-cols-2">
                             <div>
-                                <dt class="text-xs font-medium text-slate-500 uppercase">ชื่อ</dt>
-                                <dd class="mt-0.5 text-slate-900 dark:text-white">{{ provider.name }}</dd>
+                                <dt
+                                    class="text-xs font-medium text-slate-500 uppercase"
+                                >
+                                    ชื่อ
+                                </dt>
+                                <dd
+                                    class="mt-0.5 text-slate-900 dark:text-white"
+                                >
+                                    {{ provider.name }}
+                                </dd>
                             </div>
                             <div>
-                                <dt class="text-xs font-medium text-slate-500 uppercase">รหัสหน่วยบริการ</dt>
-                                <dd class="mt-0.5 font-mono text-slate-900 dark:text-white">{{ provider.hcode }}</dd>
+                                <dt
+                                    class="text-xs font-medium text-slate-500 uppercase"
+                                >
+                                    รหัสหน่วยบริการ
+                                </dt>
+                                <dd
+                                    class="mt-0.5 font-mono text-slate-900 dark:text-white"
+                                >
+                                    {{ provider.hcode }}
+                                </dd>
                             </div>
                             <div>
-                                <dt class="text-xs font-medium text-slate-500 uppercase">สังกัด</dt>
-                                <dd class="mt-0.5 text-slate-900 dark:text-white">{{ provider.affiliation ?? '-' }}</dd>
+                                <dt
+                                    class="text-xs font-medium text-slate-500 uppercase"
+                                >
+                                    สังกัด
+                                </dt>
+                                <dd
+                                    class="mt-0.5 text-slate-900 dark:text-white"
+                                >
+                                    {{ provider.affiliation ?? '-' }}
+                                </dd>
                             </div>
                             <div>
-                                <dt class="text-xs font-medium text-slate-500 uppercase">ประเภทการขึ้นทะเบียน</dt>
-                                <dd class="mt-0.5 text-slate-900 dark:text-white">{{ provider.registration_type ?? '-' }}</dd>
+                                <dt
+                                    class="text-xs font-medium text-slate-500 uppercase"
+                                >
+                                    ประเภทการขึ้นทะเบียน
+                                </dt>
+                                <dd
+                                    class="mt-0.5 text-slate-900 dark:text-white"
+                                >
+                                    {{ provider.registration_type ?? '-' }}
+                                </dd>
                             </div>
                             <div>
-                                <dt class="text-xs font-medium text-slate-500 uppercase">เบอร์โทรศัพท์</dt>
-                                <dd class="mt-0.5 text-slate-900 dark:text-white">
-                                    <a v-if="provider.phone" :href="`tel:${provider.phone}`" class="text-teal-600 hover:underline">
+                                <dt
+                                    class="text-xs font-medium text-slate-500 uppercase"
+                                >
+                                    เบอร์โทรศัพท์
+                                </dt>
+                                <dd
+                                    class="mt-0.5 text-slate-900 dark:text-white"
+                                >
+                                    <a
+                                        v-if="provider.phone"
+                                        :href="`tel:${provider.phone}`"
+                                        class="text-teal-600 hover:underline"
+                                    >
                                         {{ provider.phone }}
                                     </a>
                                     <span v-else>-</span>
                                 </dd>
                             </div>
                             <div>
-                                <dt class="text-xs font-medium text-slate-500 uppercase">เว็บไซต์</dt>
+                                <dt
+                                    class="text-xs font-medium text-slate-500 uppercase"
+                                >
+                                    เว็บไซต์
+                                </dt>
                                 <dd class="mt-0.5">
                                     <a
                                         v-if="provider.website"
@@ -319,12 +400,28 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                                 </dd>
                             </div>
                             <div>
-                                <dt class="text-xs font-medium text-slate-500 uppercase">Service Plan Level</dt>
-                                <dd class="mt-0.5 text-slate-900 dark:text-white">{{ provider.service_plan_level ?? '-' }}</dd>
+                                <dt
+                                    class="text-xs font-medium text-slate-500 uppercase"
+                                >
+                                    Service Plan Level
+                                </dt>
+                                <dd
+                                    class="mt-0.5 text-slate-900 dark:text-white"
+                                >
+                                    {{ provider.service_plan_level ?? '-' }}
+                                </dd>
                             </div>
                             <div>
-                                <dt class="text-xs font-medium text-slate-500 uppercase">เวลาเปิดให้บริการ</dt>
-                                <dd class="mt-0.5 text-slate-900 dark:text-white">{{ provider.operating_hours ?? '-' }}</dd>
+                                <dt
+                                    class="text-xs font-medium text-slate-500 uppercase"
+                                >
+                                    เวลาเปิดให้บริการ
+                                </dt>
+                                <dd
+                                    class="mt-0.5 text-slate-900 dark:text-white"
+                                >
+                                    {{ provider.operating_hours ?? '-' }}
+                                </dd>
                             </div>
                         </dl>
                     </CardContent>
@@ -338,27 +435,45 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                     <CardContent class="space-y-3">
                         <div class="flex items-center justify-between text-sm">
                             <span class="text-slate-500">ประเภทบริการ</span>
-                            <span class="font-semibold">{{ provider.network_types.length }}</span>
+                            <span class="font-semibold">{{
+                                provider.network_types.length
+                            }}</span>
                         </div>
                         <div class="flex items-center justify-between text-sm">
                             <span class="text-slate-500">ผู้ประสานงาน</span>
-                            <span class="font-semibold">{{ provider.coordinators.length }}</span>
+                            <span class="font-semibold">{{
+                                provider.coordinators.length
+                            }}</span>
                         </div>
                         <div class="flex flex-col gap-0.5 text-sm">
                             <div class="flex items-center justify-between">
-                                <span class="text-slate-500">อัพเดทล่าสุด (CPP)</span>
-                                <span class="font-semibold">{{ formatThaiDate(provider.cpp_last_updated) }}</span>
+                                <span class="text-slate-500"
+                                    >อัพเดทล่าสุด (CPP)</span
+                                >
+                                <span class="font-semibold">{{
+                                    formatThaiDate(provider.cpp_last_updated)
+                                }}</span>
                             </div>
-                            <div v-if="provider.cpp_last_updated" class="text-right text-xs text-slate-400">
+                            <div
+                                v-if="provider.cpp_last_updated"
+                                class="text-right text-xs text-slate-400"
+                            >
                                 {{ timeAgo(provider.cpp_last_updated) }}
                             </div>
                         </div>
                         <div class="flex flex-col gap-0.5 text-sm">
                             <div class="flex items-center justify-between">
-                                <span class="text-slate-500">เก็บข้อมูลเมื่อ</span>
-                                <span class="font-semibold text-xs">{{ formatThaiDateTime(provider.scraped_at) }}</span>
+                                <span class="text-slate-500"
+                                    >เก็บข้อมูลเมื่อ</span
+                                >
+                                <span class="text-xs font-semibold">{{
+                                    formatThaiDateTime(provider.scraped_at)
+                                }}</span>
                             </div>
-                            <div v-if="provider.scraped_at" class="text-right text-xs text-slate-400">
+                            <div
+                                v-if="provider.scraped_at"
+                                class="text-right text-xs text-slate-400"
+                            >
                                 {{ timeAgo(provider.scraped_at) }}
                             </div>
                         </div>
@@ -378,38 +493,86 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                     <p class="mb-4 text-base text-slate-900 dark:text-white">
                         {{ fullAddress || '-' }}
                     </p>
-                    <dl class="grid gap-y-2 gap-x-4 text-sm md:grid-cols-4">
+                    <dl class="grid gap-x-4 gap-y-2 text-sm md:grid-cols-4">
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">เลขที่</dt>
-                            <dd class="text-slate-900 dark:text-white">{{ provider.address_no ?? '-' }}</dd>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                เลขที่
+                            </dt>
+                            <dd class="text-slate-900 dark:text-white">
+                                {{ provider.address_no ?? '-' }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">หมู่</dt>
-                            <dd class="text-slate-900 dark:text-white">{{ provider.moo ?? '-' }}</dd>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                หมู่
+                            </dt>
+                            <dd class="text-slate-900 dark:text-white">
+                                {{ provider.moo ?? '-' }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">ซอย</dt>
-                            <dd class="text-slate-900 dark:text-white">{{ provider.soi ?? '-' }}</dd>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                ซอย
+                            </dt>
+                            <dd class="text-slate-900 dark:text-white">
+                                {{ provider.soi ?? '-' }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">ถนน</dt>
-                            <dd class="text-slate-900 dark:text-white">{{ provider.road ?? '-' }}</dd>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                ถนน
+                            </dt>
+                            <dd class="text-slate-900 dark:text-white">
+                                {{ provider.road ?? '-' }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">ตำบล</dt>
-                            <dd class="text-slate-900 dark:text-white">{{ provider.subdistrict ?? '-' }}</dd>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                ตำบล
+                            </dt>
+                            <dd class="text-slate-900 dark:text-white">
+                                {{ provider.subdistrict ?? '-' }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">อำเภอ</dt>
-                            <dd class="text-slate-900 dark:text-white">{{ provider.district ?? '-' }}</dd>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                อำเภอ
+                            </dt>
+                            <dd class="text-slate-900 dark:text-white">
+                                {{ provider.district ?? '-' }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">จังหวัด</dt>
-                            <dd class="text-slate-900 dark:text-white">{{ provider.province ?? '-' }}</dd>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                จังหวัด
+                            </dt>
+                            <dd class="text-slate-900 dark:text-white">
+                                {{ provider.province ?? '-' }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">รหัสไปรษณีย์</dt>
-                            <dd class="text-slate-900 dark:text-white">{{ provider.postal_code ?? '-' }}</dd>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                รหัสไปรษณีย์
+                            </dt>
+                            <dd class="text-slate-900 dark:text-white">
+                                {{ provider.postal_code ?? '-' }}
+                            </dd>
                         </div>
                     </dl>
                 </CardContent>
@@ -427,7 +590,10 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div v-if="provider.network_types.length === 0" class="text-sm text-slate-500">
+                    <div
+                        v-if="provider.network_types.length === 0"
+                        class="text-sm text-slate-500"
+                    >
                         ไม่มีข้อมูลประเภทหน่วยบริการ
                     </div>
                     <div v-else class="space-y-2">
@@ -439,7 +605,9 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                             <Badge variant="outline" class="font-mono">
                                 {{ nt.type_code }}
                             </Badge>
-                            <div class="flex-1 text-sm text-slate-700 dark:text-slate-300">
+                            <div
+                                class="flex-1 text-sm text-slate-700 dark:text-slate-300"
+                            >
                                 {{ nt.type_name }}
                             </div>
                         </div>
@@ -456,36 +624,76 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <dl class="grid gap-y-3 gap-x-4 text-sm md:grid-cols-2">
+                    <dl class="grid gap-x-4 gap-y-3 text-sm md:grid-cols-2">
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">เบอร์โทรศูนย์บริการหลักประกันสุขภาพ</dt>
-                            <dd class="mt-0.5 text-slate-900 dark:text-white">{{ provider.uc_phone ?? '-' }}</dd>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                เบอร์โทรศูนย์บริการหลักประกันสุขภาพ
+                            </dt>
+                            <dd class="mt-0.5 text-slate-900 dark:text-white">
+                                {{ provider.uc_phone ?? '-' }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">เบอร์โทรงานประกันคุณภาพ</dt>
-                            <dd class="mt-0.5 text-slate-900 dark:text-white">{{ provider.quality_phone ?? '-' }}</dd>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                เบอร์โทรงานประกันคุณภาพ
+                            </dt>
+                            <dd class="mt-0.5 text-slate-900 dark:text-white">
+                                {{ provider.quality_phone ?? '-' }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">เบอร์โทรศูนย์ประสานงานการส่งต่อ</dt>
-                            <dd class="mt-0.5 text-slate-900 dark:text-white">{{ provider.referral_phone ?? '-' }}</dd>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                เบอร์โทรศูนย์ประสานงานการส่งต่อ
+                            </dt>
+                            <dd class="mt-0.5 text-slate-900 dark:text-white">
+                                {{ provider.referral_phone ?? '-' }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">โทรสาร UC</dt>
-                            <dd class="mt-0.5 text-slate-900 dark:text-white">{{ provider.uc_fax ?? '-' }}</dd>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                โทรสาร UC
+                            </dt>
+                            <dd class="mt-0.5 text-slate-900 dark:text-white">
+                                {{ provider.uc_fax ?? '-' }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">Email UC</dt>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                Email UC
+                            </dt>
                             <dd class="mt-0.5">
-                                <a v-if="provider.uc_email" :href="`mailto:${provider.uc_email}`" class="text-teal-600 hover:underline">
+                                <a
+                                    v-if="provider.uc_email"
+                                    :href="`mailto:${provider.uc_email}`"
+                                    class="text-teal-600 hover:underline"
+                                >
                                     {{ provider.uc_email }}
                                 </a>
                                 <span v-else class="text-slate-500">-</span>
                             </dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-medium text-slate-500 uppercase">Email งานสารบรรณ</dt>
+                            <dt
+                                class="text-xs font-medium text-slate-500 uppercase"
+                            >
+                                Email งานสารบรรณ
+                            </dt>
                             <dd class="mt-0.5">
-                                <a v-if="provider.doc_email" :href="`mailto:${provider.doc_email}`" class="text-teal-600 hover:underline">
+                                <a
+                                    v-if="provider.doc_email"
+                                    :href="`mailto:${provider.doc_email}`"
+                                    class="text-teal-600 hover:underline"
+                                >
                                     {{ provider.doc_email }}
                                 </a>
                                 <span v-else class="text-slate-500">-</span>
@@ -504,7 +712,10 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div v-if="provider.coordinators.length === 0" class="text-sm text-slate-500">
+                    <div
+                        v-if="provider.coordinators.length === 0"
+                        class="text-sm text-slate-500"
+                    >
                         ไม่มีข้อมูลผู้ประสานงาน
                     </div>
                     <div v-else class="grid gap-3 md:grid-cols-2">
@@ -513,29 +724,59 @@ const cppUrl = computed(() => `https://cpp.nhso.go.th/profile/?hcode=${props.pro
                             :key="c.id"
                             class="rounded-lg border border-slate-200 p-3 dark:border-slate-800"
                         >
-                            <div class="font-medium text-slate-900 dark:text-white">
+                            <div
+                                class="font-medium text-slate-900 dark:text-white"
+                            >
                                 {{ c.name ?? '(ไม่มีชื่อ)' }}
                             </div>
-                            <div v-if="c.department" class="mt-0.5 text-xs text-slate-500">
+                            <div
+                                v-if="c.department"
+                                class="mt-0.5 text-xs text-slate-500"
+                            >
                                 {{ c.department }}
                             </div>
                             <div class="mt-2 space-y-1 text-sm">
-                                <div v-if="c.email" class="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <div
+                                    v-if="c.email"
+                                    class="flex items-center gap-2 text-slate-600 dark:text-slate-400"
+                                >
                                     <Mail class="h-3.5 w-3.5" />
-                                    <a :href="`mailto:${c.email}`" class="text-teal-600 hover:underline">
+                                    <a
+                                        :href="`mailto:${c.email}`"
+                                        class="text-teal-600 hover:underline"
+                                    >
                                         {{ c.email }}
                                     </a>
                                 </div>
-                                <div v-if="c.phone" class="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <div
+                                    v-if="c.phone"
+                                    class="flex items-center gap-2 text-slate-600 dark:text-slate-400"
+                                >
                                     <Phone class="h-3.5 w-3.5" />
-                                    <a :href="`tel:${c.phone}`" class="hover:underline">{{ c.phone }}</a>
+                                    <a
+                                        :href="`tel:${c.phone}`"
+                                        class="hover:underline"
+                                        >{{ c.phone }}</a
+                                    >
                                 </div>
-                                <div v-if="c.mobile" class="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                <div
+                                    v-if="c.mobile"
+                                    class="flex items-center gap-2 text-slate-600 dark:text-slate-400"
+                                >
                                     <Phone class="h-3.5 w-3.5" />
-                                    <a :href="`tel:${c.mobile}`" class="hover:underline">{{ c.mobile }}</a>
-                                    <span class="text-xs text-slate-400">(มือถือ)</span>
+                                    <a
+                                        :href="`tel:${c.mobile}`"
+                                        class="hover:underline"
+                                        >{{ c.mobile }}</a
+                                    >
+                                    <span class="text-xs text-slate-400"
+                                        >(มือถือ)</span
+                                    >
                                 </div>
-                                <div v-if="c.fax" class="text-xs text-slate-500">
+                                <div
+                                    v-if="c.fax"
+                                    class="text-xs text-slate-500"
+                                >
                                     Fax: {{ c.fax }}
                                 </div>
                             </div>

@@ -23,10 +23,12 @@ onMounted(() => {
                 }
             });
         },
-        { rootMargin: '-100px 0px -60% 0px' }
+        { rootMargin: '-100px 0px -60% 0px' },
     );
 
-    document.querySelectorAll('section[id]').forEach((el) => observer.observe(el));
+    document
+        .querySelectorAll('section[id]')
+        .forEach((el) => observer.observe(el));
 });
 
 function scrollTo(id: string) {
@@ -41,20 +43,36 @@ function scrollTo(id: string) {
 <template>
     <Head :title="title">
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+        <link
+            rel="preconnect"
+            href="https://fonts.gstatic.com"
+            crossorigin=""
+        />
         <link
             href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap"
             rel="stylesheet"
         />
     </Head>
 
-    <div class="min-h-screen bg-slate-50 font-['IBM_Plex_Sans_Thai','Outfit',sans-serif] dark:bg-slate-950">
+    <div
+        class="min-h-screen bg-slate-50 font-['IBM_Plex_Sans_Thai','Outfit',sans-serif] dark:bg-slate-950"
+    >
         <!-- Navigation (reuse Welcome nav style) -->
-        <nav class="sticky top-0 z-50 border-b border-slate-200/50 bg-white/80 backdrop-blur-md dark:border-slate-800/50 dark:bg-slate-950/80">
-            <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <nav
+            class="sticky top-0 z-50 border-b border-slate-200/50 bg-white/80 backdrop-blur-md dark:border-slate-800/50 dark:bg-slate-950/80"
+        >
+            <div
+                class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
+            >
                 <Link href="/" class="flex items-center gap-2">
-                    <img src="/assets/logo.png" alt="AutoNAP" class="h-8 w-auto md:h-10" />
-                    <span class="hidden text-xl font-bold tracking-tight text-slate-900 md:block dark:text-white">
+                    <img
+                        src="/assets/logo.png"
+                        alt="AutoNAP"
+                        class="h-8 w-auto md:h-10"
+                    />
+                    <span
+                        class="hidden text-xl font-bold tracking-tight text-slate-900 md:block dark:text-white"
+                    >
                         AutoNAP
                     </span>
                 </Link>
@@ -69,19 +87,33 @@ function scrollTo(id: string) {
         </nav>
 
         <!-- Hero -->
-        <header class="relative overflow-hidden border-b border-slate-200 bg-white py-16 dark:border-slate-800 dark:bg-slate-900">
+        <header
+            class="relative overflow-hidden border-b border-slate-200 bg-white py-16 dark:border-slate-800 dark:bg-slate-900"
+        >
             <div class="absolute inset-0 opacity-10">
-                <div class="absolute -top-1/2 left-1/4 h-full w-1/2 bg-linear-to-br from-teal-400 to-blue-500 blur-3xl"></div>
+                <div
+                    class="absolute -top-1/2 left-1/4 h-full w-1/2 bg-linear-to-br from-teal-400 to-blue-500 blur-3xl"
+                ></div>
             </div>
             <div class="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-                <h1 class="text-4xl font-bold tracking-tight text-balance text-slate-900 md:text-5xl dark:text-white">
+                <h1
+                    class="text-4xl font-bold tracking-tight text-balance text-slate-900 md:text-5xl dark:text-white"
+                >
                     {{ title }}
                 </h1>
-                <p v-if="subtitle" class="mt-4 text-lg text-pretty text-slate-600 dark:text-slate-400">
+                <p
+                    v-if="subtitle"
+                    class="mt-4 text-lg text-pretty text-slate-600 dark:text-slate-400"
+                >
                     {{ subtitle }}
                 </p>
-                <div class="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500 dark:text-slate-400">
-                    <div><strong>วันที่มีผลบังคับใช้:</strong> {{ effectiveDate }}</div>
+                <div
+                    class="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500 dark:text-slate-400"
+                >
+                    <div>
+                        <strong>วันที่มีผลบังคับใช้:</strong>
+                        {{ effectiveDate }}
+                    </div>
                     <div><strong>เวอร์ชัน:</strong> {{ version }}</div>
                 </div>
             </div>
@@ -93,7 +125,9 @@ function scrollTo(id: string) {
                 <!-- TOC Sidebar (desktop only) -->
                 <aside v-if="toc && toc.length" class="hidden lg:block">
                     <div class="sticky top-24">
-                        <h2 class="mb-4 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                        <h2
+                            class="mb-4 text-xs font-semibold tracking-wider text-slate-500 uppercase"
+                        >
                             สารบัญ
                         </h2>
                         <nav class="space-y-1">
@@ -123,20 +157,39 @@ function scrollTo(id: string) {
         </main>
 
         <!-- Footer -->
-        <footer class="border-t border-slate-200 bg-white py-12 dark:border-slate-800 dark:bg-slate-950">
+        <footer
+            class="border-t border-slate-200 bg-white py-12 dark:border-slate-800 dark:bg-slate-950"
+        >
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div class="flex flex-col items-center justify-between gap-8 md:flex-row">
+                <div
+                    class="flex flex-col items-center justify-between gap-8 md:flex-row"
+                >
                     <div class="flex items-center gap-2">
-                        <img src="/assets/logo.png" alt="AutoNAP" class="h-6 w-auto" />
+                        <img
+                            src="/assets/logo.png"
+                            alt="AutoNAP"
+                            class="h-6 w-auto"
+                        />
                         <span class="text-lg font-bold">AutoNAP</span>
                     </div>
                     <div class="text-sm text-slate-500 dark:text-slate-400">
-                        &copy; 2026 AutoNAP. สำหรับเครือข่ายคลินิก HIV ภายใต้ สปสช.
+                        &copy; 2026 AutoNAP. สำหรับเครือข่ายคลินิก HIV ภายใต้
+                        สปสช.
                     </div>
-                    <div class="flex gap-6 text-sm text-slate-500 dark:text-slate-400">
-                        <Link href="/privacy" class="hover:text-teal-500">Privacy Policy</Link>
-                        <Link href="/terms" class="hover:text-teal-500">Terms of Service</Link>
-                        <a href="mailto:privacy@autonap.co.th" class="hover:text-teal-500">ติดต่อ</a>
+                    <div
+                        class="flex gap-6 text-sm text-slate-500 dark:text-slate-400"
+                    >
+                        <Link href="/privacy" class="hover:text-teal-500"
+                            >Privacy Policy</Link
+                        >
+                        <Link href="/terms" class="hover:text-teal-500"
+                            >Terms of Service</Link
+                        >
+                        <a
+                            href="mailto:privacy@autonap.co.th"
+                            class="hover:text-teal-500"
+                            >ติดต่อ</a
+                        >
                     </div>
                 </div>
             </div>

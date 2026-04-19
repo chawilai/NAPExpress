@@ -24,20 +24,61 @@ import {
 const open = defineModel<boolean>('open', { default: false });
 
 const workTypeOptions = [
-    { value: 'RR', label: '🔄 Reach / Outreach (RR)', desc: 'บันทึกการออกไปพบผู้รับบริการ' },
-    { value: 'VCT', label: '💬 VCT Counseling', desc: 'ให้คำปรึกษาและตรวจ HIV' },
+    {
+        value: 'RR',
+        label: '🔄 Reach / Outreach (RR)',
+        desc: 'บันทึกการออกไปพบผู้รับบริการ',
+    },
+    {
+        value: 'VCT',
+        label: '💬 VCT Counseling',
+        desc: 'ให้คำปรึกษาและตรวจ HIV',
+    },
     { value: 'Lab', label: '🧪 Lab HIV Testing', desc: 'ตรวจ lab HIV / STI' },
     { value: 'Result', label: '📋 HIV Result Recording', desc: 'บันทึกผลตรวจ' },
     { value: 'PrEP', label: '💊 PrEP / PEP', desc: 'ยาป้องกันก่อน/หลังสัมผัส' },
-    { value: 'HIVST', label: '📦 HIVST Kit Distribution', desc: 'แจกชุดตรวจด้วยตนเอง' },
+    {
+        value: 'HIVST',
+        label: '📦 HIVST Kit Distribution',
+        desc: 'แจกชุดตรวจด้วยตนเอง',
+    },
     { value: 'Other', label: '✨ อื่นๆ', desc: 'งานอื่นที่เกี่ยวข้อง' },
 ];
 
 const provinces = [
-    'กรุงเทพมหานคร', 'เชียงใหม่', 'เชียงราย', 'ลำปาง', 'ลำพูน', 'พะเยา', 'แพร่', 'น่าน', 'แม่ฮ่องสอน',
-    'นครราชสีมา', 'ขอนแก่น', 'อุดรธานี', 'อุบลราชธานี', 'ร้อยเอ็ด', 'มหาสารคาม', 'กาฬสินธุ์',
-    'ชลบุรี', 'ระยอง', 'จันทบุรี', 'ตราด', 'ปราจีนบุรี', 'ฉะเชิงเทรา', 'นครปฐม', 'สมุทรปราการ',
-    'สงขลา', 'ภูเก็ต', 'สุราษฎร์ธานี', 'นครศรีธรรมราช', 'ตรัง', 'พัทลุง', 'ปัตตานี', 'ยะลา', 'นราธิวาส',
+    'กรุงเทพมหานคร',
+    'เชียงใหม่',
+    'เชียงราย',
+    'ลำปาง',
+    'ลำพูน',
+    'พะเยา',
+    'แพร่',
+    'น่าน',
+    'แม่ฮ่องสอน',
+    'นครราชสีมา',
+    'ขอนแก่น',
+    'อุดรธานี',
+    'อุบลราชธานี',
+    'ร้อยเอ็ด',
+    'มหาสารคาม',
+    'กาฬสินธุ์',
+    'ชลบุรี',
+    'ระยอง',
+    'จันทบุรี',
+    'ตราด',
+    'ปราจีนบุรี',
+    'ฉะเชิงเทรา',
+    'นครปฐม',
+    'สมุทรปราการ',
+    'สงขลา',
+    'ภูเก็ต',
+    'สุราษฎร์ธานี',
+    'นครศรีธรรมราช',
+    'ตรัง',
+    'พัทลุง',
+    'ปัตตานี',
+    'ยะลา',
+    'นราธิวาส',
     'อื่นๆ',
 ];
 
@@ -116,16 +157,18 @@ async function submit() {
             }
 
             errors.value = flat;
+
             return;
         }
 
         if (!res.ok) {
             errors.value.general = 'เกิดข้อผิดพลาด ลองใหม่อีกครั้ง';
+
             return;
         }
 
         submitted.value = true;
-    } catch (e) {
+    } catch {
         errors.value.general = 'เชื่อมต่อไม่ได้ กรุณาลองใหม่';
     } finally {
         submitting.value = false;
@@ -137,13 +180,19 @@ async function submit() {
     <Dialog v-model:open="open">
         <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <!-- Success state -->
-            <div v-if="submitted" class="flex flex-col items-center py-6 text-center">
-                <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-950">
+            <div
+                v-if="submitted"
+                class="flex flex-col items-center py-6 text-center"
+            >
+                <div
+                    class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-950"
+                >
                     <CheckCircle2 class="h-10 w-10 text-teal-500" />
                 </div>
                 <DialogTitle class="text-2xl">ได้รับคำขอแล้ว ✅</DialogTitle>
                 <DialogDescription class="mt-3 max-w-md">
-                    ขอบคุณที่สนใจ AutoNAP ครับ ทีมงานจะติดต่อกลับภายใน <strong>24 ชั่วโมง</strong>
+                    ขอบคุณที่สนใจ AutoNAP ครับ ทีมงานจะติดต่อกลับภายใน
+                    <strong>24 ชั่วโมง</strong>
                     เพื่อนัดหมาย demo 15 นาที
                 </DialogDescription>
                 <Button class="mt-6" @click="closeDialog">ปิด</Button>
@@ -157,8 +206,9 @@ async function submit() {
                         นัดคุย Demo 15 นาที
                     </DialogTitle>
                     <DialogDescription>
-                        กรอกข้อมูลเพื่อให้ทีม AutoNAP นัดหมายคุยกับคุณ — ไม่มีค่าใช้จ่าย
-                        และไม่ผูกมัดครับ ทีมจะติดต่อกลับภายใน 24 ชั่วโมง
+                        กรอกข้อมูลเพื่อให้ทีม AutoNAP นัดหมายคุยกับคุณ —
+                        ไม่มีค่าใช้จ่าย และไม่ผูกมัดครับ ทีมจะติดต่อกลับภายใน 24
+                        ชั่วโมง
                     </DialogDescription>
                 </DialogHeader>
 
@@ -175,7 +225,10 @@ async function submit() {
                                 placeholder="เช่น มูลนิธิ/คลินิก/ชมรม..."
                                 required
                             />
-                            <p v-if="errors.org_name" class="mt-1 text-xs text-rose-500">
+                            <p
+                                v-if="errors.org_name"
+                                class="mt-1 text-xs text-rose-500"
+                            >
                                 {{ errors.org_name }}
                             </p>
                         </div>
@@ -186,12 +239,19 @@ async function submit() {
                                     <SelectValue placeholder="เลือกจังหวัด" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem v-for="p in provinces" :key="p" :value="p">
+                                    <SelectItem
+                                        v-for="p in provinces"
+                                        :key="p"
+                                        :value="p"
+                                    >
                                         {{ p }}
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
-                            <p v-if="errors.province" class="mt-1 text-xs text-rose-500">
+                            <p
+                                v-if="errors.province"
+                                class="mt-1 text-xs text-rose-500"
+                            >
                                 {{ errors.province }}
                             </p>
                         </div>
@@ -200,7 +260,8 @@ async function submit() {
                     <!-- Work types (multi select) -->
                     <div>
                         <Label class="mb-2 block">
-                            ทำงานรูปแบบไหน? (เลือกได้มากกว่า 1) <span class="text-rose-500">*</span>
+                            ทำงานรูปแบบไหน? (เลือกได้มากกว่า 1)
+                            <span class="text-rose-500">*</span>
                         </Label>
                         <div class="grid gap-2 sm:grid-cols-2">
                             <button
@@ -218,22 +279,33 @@ async function submit() {
                                 <Checkbox
                                     :model-value="isSelected(wt.value)"
                                     class="pointer-events-none mt-0.5"
-                                    @update:model-value="toggleWorkType(wt.value)"
+                                    @update:model-value="
+                                        toggleWorkType(wt.value)
+                                    "
                                 />
                                 <div class="flex-1">
-                                    <div class="font-medium">{{ wt.label }}</div>
-                                    <div class="mt-0.5 text-xs text-slate-500">{{ wt.desc }}</div>
+                                    <div class="font-medium">
+                                        {{ wt.label }}
+                                    </div>
+                                    <div class="mt-0.5 text-xs text-slate-500">
+                                        {{ wt.desc }}
+                                    </div>
                                 </div>
                             </button>
                         </div>
-                        <p v-if="errors.work_types" class="mt-1 text-xs text-rose-500">
+                        <p
+                            v-if="errors.work_types"
+                            class="mt-1 text-xs text-rose-500"
+                        >
                             {{ errors.work_types }}
                         </p>
                     </div>
 
                     <!-- Cases per month -->
                     <div>
-                        <Label for="cases" class="mb-1.5">จำนวนเคสโดยประมาณต่อเดือน</Label>
+                        <Label for="cases" class="mb-1.5"
+                            >จำนวนเคสโดยประมาณต่อเดือน</Label
+                        >
                         <Input
                             id="cases"
                             v-model.number="form.cases_per_month"
@@ -242,19 +314,25 @@ async function submit() {
                             placeholder="เช่น 500, 1000, 3000"
                         />
                         <p class="mt-1 text-xs text-slate-500">
-                            ใช้คำนวณ package ที่เหมาะสมกับองค์กรของคุณ (optional)
+                            ใช้คำนวณ package ที่เหมาะสมกับองค์กรของคุณ
+                            (optional)
                         </p>
                     </div>
 
                     <!-- Contact info -->
-                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-                        <div class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <div
+                        class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50"
+                    >
+                        <div
+                            class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300"
+                        >
                             ข้อมูลติดต่อกลับ
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div>
                                 <Label for="contact_name" class="mb-1.5">
-                                    ชื่อผู้ติดต่อ <span class="text-rose-500">*</span>
+                                    ชื่อผู้ติดต่อ
+                                    <span class="text-rose-500">*</span>
                                 </Label>
                                 <Input
                                     id="contact_name"
@@ -262,13 +340,17 @@ async function submit() {
                                     placeholder="คุณ..."
                                     required
                                 />
-                                <p v-if="errors.contact_name" class="mt-1 text-xs text-rose-500">
+                                <p
+                                    v-if="errors.contact_name"
+                                    class="mt-1 text-xs text-rose-500"
+                                >
                                     {{ errors.contact_name }}
                                 </p>
                             </div>
                             <div>
                                 <Label for="contact_phone" class="mb-1.5">
-                                    เบอร์โทร <span class="text-rose-500">*</span>
+                                    เบอร์โทร
+                                    <span class="text-rose-500">*</span>
                                 </Label>
                                 <Input
                                     id="contact_phone"
@@ -277,14 +359,20 @@ async function submit() {
                                     placeholder="08X-XXX-XXXX"
                                     required
                                 />
-                                <p v-if="errors.contact_phone" class="mt-1 text-xs text-rose-500">
+                                <p
+                                    v-if="errors.contact_phone"
+                                    class="mt-1 text-xs text-rose-500"
+                                >
                                     {{ errors.contact_phone }}
                                 </p>
                             </div>
                         </div>
                         <div class="mt-3">
                             <Label for="contact_email" class="mb-1.5">
-                                อีเมล <span class="text-xs font-normal text-slate-500">(ไม่บังคับ)</span>
+                                อีเมล
+                                <span class="text-xs font-normal text-slate-500"
+                                    >(ไม่บังคับ)</span
+                                >
                             </Label>
                             <Input
                                 id="contact_email"
@@ -292,7 +380,10 @@ async function submit() {
                                 type="email"
                                 placeholder="you@example.com"
                             />
-                            <p v-if="errors.contact_email" class="mt-1 text-xs text-rose-500">
+                            <p
+                                v-if="errors.contact_email"
+                                class="mt-1 text-xs text-rose-500"
+                            >
                                 {{ errors.contact_email }}
                             </p>
                         </div>
@@ -301,7 +392,10 @@ async function submit() {
                     <!-- Notes -->
                     <div>
                         <Label for="notes" class="mb-1.5">
-                            หมายเหตุเพิ่มเติม <span class="text-xs font-normal text-slate-500">(ไม่บังคับ)</span>
+                            หมายเหตุเพิ่มเติม
+                            <span class="text-xs font-normal text-slate-500"
+                                >(ไม่บังคับ)</span
+                            >
                         </Label>
                         <textarea
                             id="notes"
@@ -313,21 +407,36 @@ async function submit() {
                     </div>
 
                     <!-- General error -->
-                    <div v-if="errors.general" class="rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/20 dark:text-rose-300">
+                    <div
+                        v-if="errors.general"
+                        class="rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/20 dark:text-rose-300"
+                    >
                         ⚠️ {{ errors.general }}
                     </div>
 
                     <DialogFooter class="gap-2 sm:gap-0">
-                        <Button type="button" variant="outline" @click="closeDialog">ยกเลิก</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            @click="closeDialog"
+                            >ยกเลิก</Button
+                        >
                         <Button type="submit" :disabled="submitting">
-                            <Loader2 v-if="submitting" class="mr-2 h-4 w-4 animate-spin" />
+                            <Loader2
+                                v-if="submitting"
+                                class="mr-2 h-4 w-4 animate-spin"
+                            />
                             {{ submitting ? 'กำลังส่ง...' : 'ส่งคำขอ Demo' }}
                         </Button>
                     </DialogFooter>
 
                     <p class="text-xs text-slate-500">
                         🔒 ข้อมูลของคุณอยู่ภายใต้
-                        <a href="/privacy" class="text-teal-600 hover:underline" target="_blank">
+                        <a
+                            href="/privacy"
+                            class="text-teal-600 hover:underline"
+                            target="_blank"
+                        >
                             นโยบายความเป็นส่วนตัว
                         </a>
                         ใช้เฉพาะเพื่อติดต่อกลับเท่านั้น

@@ -33,15 +33,25 @@ const toc = [
             <div class="callout callout-teal">
                 <h3 class="mt-0 mb-2 text-lg font-bold">📋 สรุปสั้น</h3>
                 <ul class="mb-0">
-                    <li>AutoNAP เป็นบริการ automation สำหรับบันทึกข้อมูลเข้าระบบ NAP Plus ของ สปสช.</li>
-                    <li>ลูกค้ารับผิดชอบความถูกต้องของข้อมูลและการใช้งานภายใต้ scope ที่ สปสช. กำหนด</li>
+                    <li>
+                        AutoNAP เป็นบริการ automation สำหรับบันทึกข้อมูลเข้าระบบ
+                        NAP Plus ของ สปสช.
+                    </li>
+                    <li>
+                        ลูกค้ารับผิดชอบความถูกต้องของข้อมูลและการใช้งานภายใต้
+                        scope ที่ สปสช. กำหนด
+                    </li>
                     <li>ทดลองใช้ฟรี 30 วัน ยกเลิกได้ทุกเมื่อ</li>
-                    <li>ไม่ผูกมัดสัญญา ยกเว้นช่วง Founding 50 ที่ล็อคราคา 12 เดือน</li>
+                    <li>
+                        ไม่ผูกมัดสัญญา ยกเว้นช่วง Founding 50 ที่ล็อคราคา 12
+                        เดือน
+                    </li>
                     <li>ความรับผิดของเราจำกัดที่ค่าบริการ 12 เดือน</li>
                 </ul>
             </div>
             <p class="text-sm text-slate-500 italic">
-                ⚖️ เอกสารนี้เป็นฉบับ v1.0 อาจมีการปรับปรุงหลัง legal review ครั้งแรก
+                ⚖️ เอกสารนี้เป็นฉบับ v1.0 อาจมีการปรับปรุงหลัง legal review
+                ครั้งแรก
             </p>
         </section>
 
@@ -49,15 +59,20 @@ const toc = [
         <section id="acceptance">
             <h2>1. การยอมรับข้อตกลง</h2>
             <p>
-                โดยการเข้าใช้บริการ AutoNAP (ต่อไปนี้เรียกว่า "บริการ") ท่าน (ต่อไปนี้เรียกว่า "ลูกค้า" หรือ "ท่าน")
+                โดยการเข้าใช้บริการ AutoNAP (ต่อไปนี้เรียกว่า "บริการ") ท่าน
+                (ต่อไปนี้เรียกว่า "ลูกค้า" หรือ "ท่าน")
                 ตกลงและผูกพันตามข้อตกลงในเอกสารนี้ ("Terms of Service") รวมถึง
-                <a href="/privacy">นโยบายความเป็นส่วนตัว</a> และเอกสารอื่นที่อ้างอิงในสัญญา
+                <a href="/privacy">นโยบายความเป็นส่วนตัว</a>
+                และเอกสารอื่นที่อ้างอิงในสัญญา
             </p>
             <p>
-                หากท่านไม่เห็นด้วยกับข้อใดข้อหนึ่ง ขอให้ท่าน<strong>ไม่ใช้บริการ</strong>
+                หากท่านไม่เห็นด้วยกับข้อใดข้อหนึ่ง ขอให้ท่าน<strong
+                    >ไม่ใช้บริการ</strong
+                >
             </p>
             <p>
-                ท่านที่ลงทะเบียนในนามของนิติบุคคล (คลินิก, มูลนิธิ, สมาคม) รับรองว่าท่านมีอำนาจในการผูกพันนิติบุคคลนั้น
+                ท่านที่ลงทะเบียนในนามของนิติบุคคล (คลินิก, มูลนิธิ, สมาคม)
+                รับรองว่าท่านมีอำนาจในการผูกพันนิติบุคคลนั้น
             </p>
         </section>
 
@@ -68,11 +83,26 @@ const toc = [
             <h3>2.1 ขอบเขตของบริการ</h3>
             <p>AutoNAP ให้บริการ:</p>
             <ul>
-                <li><strong>Automation การบันทึก NAP:</strong> รับข้อมูลจากลูกค้าและบันทึกเข้าระบบ NAP Plus ของ สปสช. โดยอัตโนมัติ</li>
-                <li><strong>Dashboard:</strong> แสดงสถานะ job แบบ real-time และ audit log</li>
-                <li><strong>Email report:</strong> รายงานผลการบันทึกทุกครั้งที่ job เสร็จ</li>
-                <li><strong>Callback API:</strong> ส่งผลลัพธ์กลับระบบของลูกค้า (ถ้ามี)</li>
-                <li><strong>CSV/API import:</strong> รับข้อมูลผ่านหลายช่องทาง</li>
+                <li>
+                    <strong>Automation การบันทึก NAP:</strong>
+                    รับข้อมูลจากลูกค้าและบันทึกเข้าระบบ NAP Plus ของ สปสช.
+                    โดยอัตโนมัติ
+                </li>
+                <li>
+                    <strong>Dashboard:</strong> แสดงสถานะ job แบบ real-time และ
+                    audit log
+                </li>
+                <li>
+                    <strong>Email report:</strong> รายงานผลการบันทึกทุกครั้งที่
+                    job เสร็จ
+                </li>
+                <li>
+                    <strong>Callback API:</strong> ส่งผลลัพธ์กลับระบบของลูกค้า
+                    (ถ้ามี)
+                </li>
+                <li>
+                    <strong>CSV/API import:</strong> รับข้อมูลผ่านหลายช่องทาง
+                </li>
             </ul>
 
             <h3>2.2 สิ่งที่บริการไม่ครอบคลุม</h3>
@@ -92,8 +122,14 @@ const toc = [
             <p>บริการสำหรับ:</p>
             <ul>
                 <li>หน่วยบริการสุขภาพที่ขึ้นทะเบียนกับ สปสช.</li>
-                <li>มูลนิธิ / สมาคม / ชมรมที่ทำงานด้าน HIV/STI หรือสาธารณสุขชุมชน</li>
-                <li>บุคลากรทางการแพทย์ / เจ้าหน้าที่สาธารณสุขที่ได้รับมอบหมายจากหน่วยบริการ</li>
+                <li>
+                    มูลนิธิ / สมาคม / ชมรมที่ทำงานด้าน HIV/STI
+                    หรือสาธารณสุขชุมชน
+                </li>
+                <li>
+                    บุคลากรทางการแพทย์ /
+                    เจ้าหน้าที่สาธารณสุขที่ได้รับมอบหมายจากหน่วยบริการ
+                </li>
             </ul>
 
             <h3>3.2 ความรับผิดชอบในบัญชี</h3>
@@ -111,7 +147,10 @@ const toc = [
             <h3>4.1 ลูกค้าต้อง</h3>
             <ul>
                 <li>✅ ใช้บริการเพื่อวัตถุประสงค์ที่ชอบด้วยกฎหมาย</li>
-                <li>✅ ส่งข้อมูลที่ถูกต้อง ตรงความจริง และได้รับ consent จากผู้รับบริการ</li>
+                <li>
+                    ✅ ส่งข้อมูลที่ถูกต้อง ตรงความจริง และได้รับ consent
+                    จากผู้รับบริการ
+                </li>
                 <li>✅ ปฏิบัติตามกฎ สปสช. และ PDPA</li>
                 <li>✅ ใช้ credentials ของตัวเอง (ห้าม share)</li>
                 <li>✅ เคารพ rate limit ของระบบ</li>
@@ -121,16 +160,21 @@ const toc = [
             <ul>
                 <li>❌ ส่งข้อมูลปลอม/เท็จ/ฉ้อโกง</li>
                 <li>❌ ใช้บริการเพื่อเคลมเงินที่ไม่ถูกต้องจาก สปสช.</li>
-                <li>❌ ทำ reverse engineering / decompile / disassemble ระบบ</li>
+                <li>
+                    ❌ ทำ reverse engineering / decompile / disassemble ระบบ
+                </li>
                 <li>❌ ขาย/ให้เช่า/แบ่งบัญชีให้บุคคลอื่น</li>
-                <li>❌ ใช้เพื่อวิเคราะห์/benchmark บริการของผู้ให้บริการอื่น</li>
+                <li>
+                    ❌ ใช้เพื่อวิเคราะห์/benchmark บริการของผู้ให้บริการอื่น
+                </li>
                 <li>❌ อัพโหลดข้อมูลของคลินิกอื่นที่ไม่ได้รับอนุญาต</li>
                 <li>❌ ก่อกวนการทำงานของระบบ (spam, DoS)</li>
             </ul>
 
             <h3>4.3 บทลงโทษ</h3>
             <p>
-                หากพบการละเมิด เรามีสิทธิ์<strong>ระงับบัญชีทันที</strong>โดยไม่แจ้งล่วงหน้า
+                หากพบการละเมิด
+                เรามีสิทธิ์<strong>ระงับบัญชีทันที</strong>โดยไม่แจ้งล่วงหน้า
                 และอาจดำเนินการตามกฎหมายหากทำให้เกิดความเสียหาย
             </p>
         </section>
@@ -141,8 +185,10 @@ const toc = [
 
             <h3>5.1 โครงสร้างราคา</h3>
             <p>
-                ค่าบริการอ้างอิงตามแพ็คเกจที่แสดงในหน้า <a href="/">Pricing</a> ในเว็บไซต์
-                ราคาอาจปรับปรุงได้โดยแจ้งล่วงหน้า 30 วัน (ยกเว้นลูกค้าในช่วง Founding 50 ที่ล็อคราคา 12 เดือน)
+                ค่าบริการอ้างอิงตามแพ็คเกจที่แสดงในหน้า
+                <a href="/">Pricing</a> ในเว็บไซต์
+                ราคาอาจปรับปรุงได้โดยแจ้งล่วงหน้า 30 วัน (ยกเว้นลูกค้าในช่วง
+                Founding 50 ที่ล็อคราคา 12 เดือน)
             </p>
 
             <h3>5.2 การชำระเงิน</h3>
@@ -170,11 +216,15 @@ const toc = [
         <section id="trial">
             <h2>6. ทดลองใช้ฟรี (Free Trial)</h2>
             <ul>
-                <li>✅ ทดลองฟรี <strong>30 วัน</strong> ไม่ต้องใส่บัตรเครดิต</li>
+                <li>
+                    ✅ ทดลองฟรี <strong>30 วัน</strong> ไม่ต้องใส่บัตรเครดิต
+                </li>
                 <li>✅ ใช้ฟีเจอร์ทั้งหมดของ Growth package</li>
                 <li>✅ Quota 300 เคส (สำหรับ trial)</li>
                 <li>✅ ไม่มีเงื่อนไขยกเลิก</li>
-                <li>⚠️ หลัง 30 วันบัญชีจะอยู่ในสถานะ read-only จนกว่าจะ upgrade</li>
+                <li>
+                    ⚠️ หลัง 30 วันบัญชีจะอยู่ในสถานะ read-only จนกว่าจะ upgrade
+                </li>
                 <li>⚠️ 1 องค์กร = 1 trial</li>
             </ul>
         </section>
@@ -190,15 +240,29 @@ const toc = [
 
             <h3>7.1 ข้อสัญญาหลัก</h3>
             <ul>
-                <li><strong>Zero Data Retention:</strong> เราไม่เก็บข้อมูลผู้รับบริการหลังประมวลผลเสร็จ</li>
-                <li><strong>Audit log:</strong> เก็บเฉพาะ masked PID + NAP code 90 วัน</li>
-                <li><strong>Data localization:</strong> ข้อมูลอยู่ในประเทศไทย</li>
-                <li><strong>DPA:</strong> ลูกค้าสามารถขอ Data Processing Agreement ได้ทุกเมื่อ</li>
+                <li>
+                    <strong>Zero Data Retention:</strong>
+                    เราไม่เก็บข้อมูลผู้รับบริการหลังประมวลผลเสร็จ
+                </li>
+                <li>
+                    <strong>Audit log:</strong> เก็บเฉพาะ masked PID + NAP code
+                    90 วัน
+                </li>
+                <li>
+                    <strong>Data localization:</strong> ข้อมูลอยู่ในประเทศไทย
+                </li>
+                <li>
+                    <strong>DPA:</strong> ลูกค้าสามารถขอ Data Processing
+                    Agreement ได้ทุกเมื่อ
+                </li>
             </ul>
 
             <h3>7.2 ความรับผิดชอบของลูกค้า</h3>
             <ul>
-                <li>ลูกค้ารับผิดชอบการมี legal basis สำหรับการประมวลผลข้อมูลผู้รับบริการ</li>
+                <li>
+                    ลูกค้ารับผิดชอบการมี legal basis
+                    สำหรับการประมวลผลข้อมูลผู้รับบริการ
+                </li>
                 <li>ลูกค้ารับผิดชอบ privacy notice ที่ให้กับผู้รับบริการ</li>
                 <li>ลูกค้ารับผิดชอบความถูกต้องของข้อมูลที่ส่งมา</li>
             </ul>
@@ -210,13 +274,20 @@ const toc = [
 
             <h3>8.1 Ownership</h3>
             <ul>
-                <li><strong>AutoNAP เป็นเจ้าของ:</strong> source code, design, trademark, logo, documentation</li>
-                <li><strong>ลูกค้าเป็นเจ้าของ:</strong> ข้อมูลของตัวเอง, content ที่ upload</li>
+                <li>
+                    <strong>AutoNAP เป็นเจ้าของ:</strong> source code, design,
+                    trademark, logo, documentation
+                </li>
+                <li>
+                    <strong>ลูกค้าเป็นเจ้าของ:</strong> ข้อมูลของตัวเอง, content
+                    ที่ upload
+                </li>
             </ul>
 
             <h3>8.2 License</h3>
             <p>
-                เราให้ license ใช้บริการในลักษณะ <strong>non-exclusive, non-transferable, revocable</strong>
+                เราให้ license ใช้บริการในลักษณะ
+                <strong>non-exclusive, non-transferable, revocable</strong>
                 ตามระยะเวลาที่ลูกค้าสมัครใช้
             </p>
         </section>
@@ -226,7 +297,8 @@ const toc = [
             <h2>9. ข้อจำกัดความรับประกัน</h2>
             <div class="callout callout-amber">
                 <p class="m-0">
-                    บริการให้ "AS IS" — เราทำอย่างเต็มที่เพื่อความถูกต้องและความพร้อมใช้งาน
+                    บริการให้ "AS IS" —
+                    เราทำอย่างเต็มที่เพื่อความถูกต้องและความพร้อมใช้งาน
                     แต่ไม่รับประกัน:
                 </p>
             </div>
@@ -238,8 +310,8 @@ const toc = [
                 <li>❌ ผลลัพธ์ทางธุรกิจ (เช่น จำนวนเงินเคลมที่ได้)</li>
             </ul>
             <p>
-                <strong>SLA (ถ้ามี):</strong> 99% uptime สำหรับ Scale/Enterprise package
-                (วัดเฉพาะ AutoNAP ไม่รวม downtime ของ สปสช.)
+                <strong>SLA (ถ้ามี):</strong> 99% uptime สำหรับ Scale/Enterprise
+                package (วัดเฉพาะ AutoNAP ไม่รวม downtime ของ สปสช.)
             </p>
         </section>
 
@@ -247,7 +319,10 @@ const toc = [
         <section id="liability">
             <h2>10. ขอบเขตความรับผิด</h2>
             <p>
-                <strong>ความรับผิดรวมของ AutoNAP ในหนึ่งปีไม่เกินจำนวนค่าบริการที่ได้รับจากลูกค้าในปีนั้น</strong>
+                <strong
+                    >ความรับผิดรวมของ AutoNAP
+                    ในหนึ่งปีไม่เกินจำนวนค่าบริการที่ได้รับจากลูกค้าในปีนั้น</strong
+                >
             </p>
             <p>เราไม่รับผิดต่อความเสียหายทางอ้อม (indirect damages) เช่น:</p>
             <ul>
@@ -257,8 +332,8 @@ const toc = [
                 <li>ข้อมูลที่สูญหายจากการกระทำของบุคคลที่สาม</li>
             </ul>
             <p>
-                ข้อจำกัดนี้<strong>ไม่ครอบคลุม</strong>การกระทำโดยเจตนา (wilful misconduct)
-                หรือการละเมิด PDPA ที่เกิดจาก AutoNAP โดยตรง
+                ข้อจำกัดนี้<strong>ไม่ครอบคลุม</strong>การกระทำโดยเจตนา (wilful
+                misconduct) หรือการละเมิด PDPA ที่เกิดจาก AutoNAP โดยตรง
             </p>
         </section>
 
@@ -271,7 +346,9 @@ const toc = [
                 <li>ยกเลิกได้ทุกเมื่อผ่าน dashboard หรือ email</li>
                 <li>ไม่มีค่าปรับ</li>
                 <li>จ่ายค่าบริการจนถึงสิ้นสุดงวดปัจจุบัน</li>
-                <li>ช่วง Founding 50: ยกเลิกได้ แต่ไม่คืนเงินที่จ่ายล่วงหน้า</li>
+                <li>
+                    ช่วง Founding 50: ยกเลิกได้ แต่ไม่คืนเงินที่จ่ายล่วงหน้า
+                </li>
             </ul>
 
             <h3>11.2 AutoNAP ยกเลิกได้ในกรณี</h3>
@@ -284,7 +361,9 @@ const toc = [
 
             <h3>11.3 หลังการยกเลิก</h3>
             <ul>
-                <li>ข้อมูล audit log ถูกลบภายใน 30 วัน (หรือเร็วกว่าถ้าลูกค้าขอ)</li>
+                <li>
+                    ข้อมูล audit log ถูกลบภายใน 30 วัน (หรือเร็วกว่าถ้าลูกค้าขอ)
+                </li>
                 <li>ลูกค้าสามารถ export ข้อมูลก่อนยกเลิกได้</li>
                 <li>ใบเสร็จและเอกสารบัญชีเก็บตามกฎหมาย (5 ปี)</li>
             </ul>
@@ -294,9 +373,16 @@ const toc = [
         <section id="changes">
             <h2>12. การเปลี่ยนแปลงข้อตกลง</h2>
             <ul>
-                <li>เราอาจปรับปรุงข้อตกลงได้ โดยแจ้งลูกค้าล่วงหน้า <strong>30 วัน</strong> ทาง email + ประกาศบนเว็บไซต์</li>
-                <li>หากลูกค้าไม่เห็นด้วย สามารถยกเลิกบริการโดยไม่เสียค่าปรับ</li>
-                <li>การใช้บริการต่อหลังวัน Effective ถือเป็นการยอมรับข้อตกลงใหม่</li>
+                <li>
+                    เราอาจปรับปรุงข้อตกลงได้ โดยแจ้งลูกค้าล่วงหน้า
+                    <strong>30 วัน</strong> ทาง email + ประกาศบนเว็บไซต์
+                </li>
+                <li>
+                    หากลูกค้าไม่เห็นด้วย สามารถยกเลิกบริการโดยไม่เสียค่าปรับ
+                </li>
+                <li>
+                    การใช้บริการต่อหลังวัน Effective ถือเป็นการยอมรับข้อตกลงใหม่
+                </li>
             </ul>
         </section>
 
@@ -314,10 +400,28 @@ const toc = [
         <section id="contact">
             <h2>14. ติดต่อเรา</h2>
             <ul>
-                <li><strong>ทั่วไป:</strong> <a href="mailto:hello@autonap.co.th">hello@autonap.co.th</a></li>
-                <li><strong>Support:</strong> <a href="mailto:support@autonap.co.th">support@autonap.co.th</a></li>
-                <li><strong>Privacy:</strong> <a href="mailto:privacy@autonap.co.th">privacy@autonap.co.th</a></li>
-                <li><strong>Billing:</strong> <a href="mailto:billing@autonap.co.th">billing@autonap.co.th</a></li>
+                <li>
+                    <strong>ทั่วไป:</strong>
+                    <a href="mailto:hello@autonap.co.th">hello@autonap.co.th</a>
+                </li>
+                <li>
+                    <strong>Support:</strong>
+                    <a href="mailto:support@autonap.co.th"
+                        >support@autonap.co.th</a
+                    >
+                </li>
+                <li>
+                    <strong>Privacy:</strong>
+                    <a href="mailto:privacy@autonap.co.th"
+                        >privacy@autonap.co.th</a
+                    >
+                </li>
+                <li>
+                    <strong>Billing:</strong>
+                    <a href="mailto:billing@autonap.co.th"
+                        >billing@autonap.co.th</a
+                    >
+                </li>
             </ul>
 
             <hr class="my-10 border-slate-200 dark:border-slate-800" />
