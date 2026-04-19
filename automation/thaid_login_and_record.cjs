@@ -1203,13 +1203,77 @@ function parseDuplicateOrg(errorMessage) {
 
 /**
  * Check if the duplicate org is the SAME as our logged-in org.
- * Compares using partial name matching (NAP site name vs error org name).
+ *
+ * Thai orgs often have different legal prefixes for the same entity:
+ *   - "ศูนย์บริการสุขภาพที่เป็นมิตรน้ำกว๊านสีรุ้ง" (operating name)
+ *   - "มูลนิธิน้ำกว๊านสีรุ้ง" (foundation name)
+ *   - "G1440 มูลนิธิน้ำกว๊านสีรุ้ง" (with code)
+ *
+ * Strategy: strip common prefixes, then compare the core name.
  */
 function isSameOrg(napSiteName, duplicateOrg) {
     if (!napSiteName || !duplicateOrg) return false;
-    const ourName = napSiteName.trim().toLowerCase();
-    const theirName = duplicateOrg.name.trim().toLowerCase();
-    return ourName.includes(theirName) || theirName.includes(ourName);
+
+    const coreName = stripOrgPrefix;
+    const ourCore = coreName(napSiteName);
+    const theirCore = coreName(duplicateOrg.name);
+
+    // Exact core match
+    if (ourCore && theirCore && (ourCore === theirCore)) return true;
+
+    // Partial core match (one contains the other)
+    if (ourCore && theirCore && (ourCore.includes(theirCore) || theirCore.includes(ourCore))) return true;
+
+    // Fallback: full name includes (original logic)
+    const ourFull = napSiteName.trim().toLowerCase();
+    const theirFull = duplicateOrg.name.trim().toLowerCase();
+    return ourFull.includes(theirFull) || theirFull.includes(ourFull);
+}
+
+/**
+ * Strip common Thai org prefixes to get the core/unique name.
+ * "มูลนิธิน้ำกว๊านสีรุ้ง" → "น้ำกว๊านสีรุ้ง"
+ * "ศูนย์บริการสุขภาพที่เป็นมิตรน้ำกว๊านสีรุ้ง" → "น้ำกว๊านสีรุ้ง"
+ */
+function stripOrgPrefix(name) {
+    if (!name) return '';
+    let n = name.trim();
+
+    // Remove hcode prefix like "G1440 " or "F0380 "
+    n = n.replace(/^[A-Z]\d{3,5}\s+/, '');
+
+    // Strip known org type prefixes (longest first to avoid partial matches)
+    const prefixes = [
+        'ศูนย์บริการสุขภาพที่เป็นมิตร',
+        'คลินิกเทคนิคการแพทย์',
+        'ศูนย์บริการ',
+        'สมาคมฟ้าสีรุ้งแห่งประเทศไทย สำนักงาน',
+        'สมาคมฟ้าสีรุ้งแห่งประเทศไทย',
+        'มูลนิธิเพื่อนพนักงานบริการ',
+        'มูลนิธิเอ็มพลัส จังหวัด',
+        'มูลนิธิเอ็มพลัส',
+        'มูลนิธิซิสเตอร์',
+        'มูลนิธิรักษ์ไทย จังหวัด',
+        'มูลนิธิรักษ์ไทย',
+        'มูลนิธิ',
+        'สมาคม',
+        'คลินิก',
+        'กลุ่มแอ็คทีม',
+        'กลุ่มเพื่อน',
+        'กลุ่ม',
+        'ชมรม',
+        'เครือข่าย',
+    ];
+
+    const lower = n.toLowerCase();
+    for (const p of prefixes) {
+        if (lower.startsWith(p.toLowerCase())) {
+            n = n.slice(p.length).trim();
+            break;
+        }
+    }
+
+    return n.toLowerCase();
 }
 
 // ============================================================
