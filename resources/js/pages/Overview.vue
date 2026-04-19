@@ -109,11 +109,11 @@ const formTypeOptions = computed(() =>
 );
 
 const statusOptions = [
-    { value: 'completed', label: '✅ สมบูรณ์' },
-    { value: 'partial', label: '⚠️ บางส่วน' },
-    { value: 'running', label: '🔄 กำลังทำ' },
-    { value: 'pending', label: '⏳ รอคิว' },
-    { value: 'failed', label: '❌ ล้มเหลว' },
+    { value: 'completed', label: '✅ Completed' },
+    { value: 'partial', label: '⚠️ Partial' },
+    { value: 'running', label: '🔄 Running' },
+    { value: 'pending', label: '⏳ Pending' },
+    { value: 'failed', label: '❌ Failed' },
 ];
 
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -176,15 +176,7 @@ function statusBadgeClass(s: string): string {
 }
 
 function statusLabel(s: string): string {
-    const map: Record<string, string> = {
-        completed: 'สมบูรณ์',
-        partial: 'บางส่วน',
-        running: 'กำลังทำ',
-        pending: 'รอคิว',
-        failed: 'ล้มเหลว',
-    };
-
-    return map[s] ?? s;
+    return s;
 }
 
 /**
