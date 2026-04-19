@@ -407,13 +407,25 @@
             const jobsBody = document.getElementById('jobs-table');
             if (stats.recent_jobs) {
                 jobsBody.innerHTML = stats.recent_jobs.map(j => {
+                    // Compute display status from success/failed counts
+                    let displayStatus = j.status;
+                    if (j.status === 'completed' || j.status === 'failed') {
+                        if (j.success > 0 && j.failed > 0) {
+                            displayStatus = 'partial';
+                        } else if (j.success === 0 && j.failed > 0) {
+                            displayStatus = 'failed';
+                        } else if (j.success > 0 && j.failed === 0) {
+                            displayStatus = 'completed';
+                        }
+                    }
                     const statusColors = {
                         completed: 'bg-green-100 text-green-700',
+                        partial: 'bg-amber-100 text-amber-700',
                         failed: 'bg-red-100 text-red-700',
                         pending: 'bg-gray-100 text-gray-500',
                         running: 'bg-blue-100 text-blue-700',
                     };
-                    const statusCls = statusColors[j.status] || 'bg-gray-100 text-gray-500';
+                    const statusCls = statusColors[displayStatus] || 'bg-gray-100 text-gray-500';
                     const dur = j.duration_seconds != null
                         ? (j.duration_seconds >= 60 ? Math.floor(j.duration_seconds / 60) + 'm ' + (j.duration_seconds % 60) + 's' : j.duration_seconds + 's')
                         : '-';
@@ -428,7 +440,7 @@
                             <td class="py-2 text-right text-gray-700">${j.total}</td>
                             <td class="py-2 text-right text-green-600">${j.success}</td>
                             <td class="py-2 text-right text-red-500">${j.failed}</td>
-                            <td class="py-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${statusCls}">${j.status}</span></td>
+                            <td class="py-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${statusCls}">${displayStatus}</span></td>
                             <td class="py-2 text-right text-xs text-gray-500">${j.date || '-'}</td>
                             <td class="py-2 text-right text-xs text-gray-500 font-mono">${j.started_at || '-'}</td>
                             <td class="py-2 text-right text-xs text-gray-500 font-mono">${j.finished_at || '-'}</td>
