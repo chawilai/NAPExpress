@@ -1281,50 +1281,138 @@ function stripOrgPrefix(name) {
 // ============================================================
 
 /**
- * Search for existing RR code by PID.
- * Returns the most recent RR code or null.
+ * Lookup existing RR record by navigating to createRRTTR with PID + date+1.
+ *
+ * Strategy: NAP Plus shows "ประวัติการให้บริการ Reach&Recruit" at the bottom
+ * of the confirmation page. We use a date AFTER the duplicate date to avoid
+ * the same "ซ้ำ" error, then extract history from the table.
+ *
+ * @param {import('playwright').Page} page
+ * @param {string} pid - 13-digit PID
+ * @param {string} originalDate - Thai Buddhist date (dd/mm/yyyy) that caused duplicate
+ * @returns {{ rrCode: string|null, date: string|null, provider: string|null } | null}
  */
-async function lookupExistingRR(page, pid) {
-    await page.goto(NAP_URLS.searchRR, { waitUntil: 'domcontentloaded', timeout: 15000 });
-    await page.waitForLoadState('networkidle').catch(() => {});
+async function lookupExistingRR(page, pid, originalDate) {
+    try {
+        // Calculate date+1 in Thai Buddhist Era format
+        const lookupDate = incrementThaiDate(originalDate || '');
 
-    // Set actionName and fill PID
-    await page.evaluate(() => {
-        const actionEl = document.getElementById('actionName');
-        if (actionEl) actionEl.value = 'search';
-    });
-    await page.fill('input#pid', pid).catch(() => {});
-    // Try alternate selector if #pid not found
-    const pidFilled = await page.evaluate((p) => {
-        const el = document.querySelector('input#pid') || document.querySelector('input[name="pid"]');
-        if (el) { el.value = p; return true; }
-        return false;
-    }, pid);
-
-    if (!pidFilled) return null;
-
-    await page.click('input[name="cmdSearch"]').catch(() => {
-        // Try alternate button
-        page.click('input[type="submit"], button[type="submit"]').catch(() => {});
-    });
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await delay(1000);
-
-    // Extract RR code from result table
-    const rrCode = await page.evaluate(() => {
-        const rows = document.querySelectorAll('table.result tbody tr, table.list tbody tr, table tbody tr');
-        for (const row of rows) {
-            const cells = row.querySelectorAll('td');
-            for (const cell of cells) {
-                const text = cell.textContent?.trim() || '';
-                const match = text.match(/RR-\d{4}-\d+/);
-                if (match) return match[0];
-            }
+        if (!lookupDate) {
+            console.log('[lookupRR] Could not calculate lookup date from:', originalDate);
+            return null;
         }
-        return null;
-    });
 
-    return rrCode;
+        console.log(`[lookupRR] Searching history: PID=${pid}, lookup date=${lookupDate} (original=${originalDate})`);
+
+        // Navigate to create RR page
+        await page.goto(NAP_URLS.createRR, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await page.waitForLoadState('networkidle').catch(() => {});
+
+        // Handle SSO redirect
+        if (page.url().includes('iam.nhso.go.th')) {
+            await page.waitForURL(url => url.toString().includes('dmis.nhso.go.th'), { timeout: 15000 }).catch(() => {});
+            await page.waitForLoadState('networkidle').catch(() => {});
+        }
+
+        // Fill PID + date+1
+        await page.fill('input[name="rrttrDate"]', lookupDate);
+        await page.fill('input[name="pid"]', pid);
+        await page.click('text=เพิ่มข้อมูลให้บริการ');
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await delay(1500);
+
+        // Check if we got the confirmation page (with history table)
+        const isConfirm = await page.isVisible('text=แสดงข้อมูลสิทธิการรักษา').catch(() => false);
+
+        if (!isConfirm) {
+            // Might have got another "ซ้ำ" error for date+1 too
+            console.log('[lookupRR] Confirmation page not shown — trying to extract from current page');
+        }
+
+        // Extract history table "ประวัติการให้บริการ Reach&Recruit"
+        const history = await page.evaluate((origDate) => {
+            const tables = document.querySelectorAll('table.result');
+            for (const table of tables) {
+                const rows = table.querySelectorAll('tbody tr');
+                const entries = [];
+                for (const row of rows) {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length < 3) continue;
+                    const entry = {
+                        seq: cells[0]?.textContent?.trim() || '',
+                        date: cells[1]?.textContent?.trim() || '',
+                        provider: cells[2]?.textContent?.trim() || '',
+                    };
+                    // Check for RR code in any cell (might be in a link or hidden column)
+                    for (const cell of cells) {
+                        const text = cell.textContent?.trim() || '';
+                        const rrMatch = text.match(/RR-\d{4}-\d+/);
+                        if (rrMatch) entry.rrCode = rrMatch[0];
+                        const linkEl = cell.querySelector('a[href]');
+                        if (linkEl) {
+                            const hrefMatch = linkEl.href?.match(/RR-\d{4}-\d+/) || linkEl.textContent?.match(/RR-\d{4}-\d+/);
+                            if (hrefMatch) entry.rrCode = hrefMatch[0];
+                        }
+                    }
+                    entries.push(entry);
+                }
+                if (entries.length > 0) return entries;
+            }
+            return [];
+        }, originalDate);
+
+        console.log(`[lookupRR] History entries found: ${history.length}`);
+        if (history.length > 0) {
+            console.log('[lookupRR] Entries:', JSON.stringify(history));
+        }
+
+        // Click "ย้อนกลับ" to not create a new record
+        await page.evaluate(() => {
+            if (typeof doBack === 'function') doBack();
+        }).catch(() => {});
+        await page.waitForLoadState('networkidle').catch(() => {});
+
+        // Find matching entry for original date
+        if (history.length > 0) {
+            // Try exact date match first
+            const match = history.find(e => e.date === originalDate);
+            if (match) {
+                return {
+                    rrCode: match.rrCode || null,
+                    date: match.date,
+                    provider: match.provider,
+                };
+            }
+            // Return the most recent entry
+            return {
+                rrCode: history[0].rrCode || null,
+                date: history[0].date,
+                provider: history[0].provider,
+            };
+        }
+
+        return null;
+    } catch (e) {
+        console.log(`[lookupRR] Error: ${e.message}`);
+        return null;
+    }
+}
+
+/**
+ * Increment a Thai Buddhist date string by 1 day.
+ * "21/01/2569" → "22/01/2569"
+ */
+function incrementThaiDate(thaiDate) {
+    const match = thaiDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return null;
+    const [, dd, mm, yyyy] = match;
+    const ceYear = parseInt(yyyy) - 543;
+    const d = new Date(ceYear, parseInt(mm) - 1, parseInt(dd));
+    d.setDate(d.getDate() + 1);
+    const newDay = String(d.getDate()).padStart(2, '0');
+    const newMonth = String(d.getMonth() + 1).padStart(2, '0');
+    const newYear = d.getFullYear() + 543;
+    return `${newDay}/${newMonth}/${newYear}`;
 }
 
 /**
@@ -1884,14 +1972,43 @@ async function run() {
                                 }, 300);
 
                                 try {
-                                    const existingCode = await lookupExistingRR(page, rrForm.pid || item.id_card);
-                                    if (existingCode) {
-                                        log(jobId, `  Record ${i + 1}: ค้นพบ RR เดิม = ${existingCode}`);
-                                        rrCode = existingCode;
-                                        rrFromLookup = true;
+                                    const lookupResult = await lookupExistingRR(page, rrForm.pid || item.id_card, rrForm.rrttrDate || rrForm.service_date_thai);
+                                    if (lookupResult) {
+                                        const foundCode = lookupResult.rrCode;
+                                        const foundProvider = lookupResult.provider || '';
+                                        const foundDate = lookupResult.date || '';
+                                        log(jobId, `  Record ${i + 1}: พบประวัติ RR — date=${foundDate} provider=${foundProvider} code=${foundCode || 'N/A'}`);
+
+                                        if (foundCode) {
+                                            rrCode = foundCode;
+                                            rrFromLookup = true;
+                                        } else {
+                                            // No RR code in history but we confirmed the record exists
+                                            const comment = `RR ซ้ำ — บันทึกแล้วโดย ${foundProvider} (${foundDate})`;
+                                            log(jobId, `  Record ${i + 1}: ${comment} (ไม่มี RR code ในตาราง)`);
+                                            results.push({
+                                                id_card: item.id_card, uic, success: true,
+                                                nap_code: `EXISTING:${foundDate}`, nap_lab_code: null,
+                                                error: null,
+                                            });
+                                            await ably?.publish('job:record:success', {
+                                                jobId, index: i + 1, total, uic,
+                                                message: `🔄 ${comment} (${i + 1}/${total})`,
+                                            }, 300);
+
+                                            if (!isDryRun && cbUrl) {
+                                                await sendCallback(cbUrl, {
+                                                    ...buildRrCallback(item, jobFy, `EXISTING:${foundDate}`, cbStaff),
+                                                    nap_comment: comment,
+                                                    recorded_by: foundProvider,
+                                                    recorded_date: foundDate,
+                                                });
+                                            }
+                                            continue; // next record
+                                        }
                                     } else {
-                                        log(jobId, `  Record ${i + 1}: ค้นหา RR เดิมไม่พบ`);
-                                        throw rrErr; // fall through to outer catch
+                                        log(jobId, `  Record ${i + 1}: ค้นหาประวัติ RR ไม่พบ`);
+                                        throw rrErr;
                                     }
                                 } catch (lookupErr) {
                                     if (lookupErr === rrErr) throw lookupErr;
