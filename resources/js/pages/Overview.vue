@@ -109,10 +109,11 @@ const formTypeOptions = computed(() =>
 );
 
 const statusOptions = [
-    { value: 'completed', label: '✅ completed' },
-    { value: 'running', label: '🔄 running' },
-    { value: 'pending', label: '⏳ pending' },
-    { value: 'failed', label: '❌ failed' },
+    { value: 'completed', label: '✅ สมบูรณ์' },
+    { value: 'partial', label: '⚠️ บางส่วน' },
+    { value: 'running', label: '🔄 กำลังทำ' },
+    { value: 'pending', label: '⏳ รอคิว' },
+    { value: 'failed', label: '❌ ล้มเหลว' },
 ];
 
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -159,10 +160,12 @@ function statusBadgeClass(s: string): string {
     const map: Record<string, string> = {
         completed:
             'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+        partial:
+            'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
         running:
             'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
         pending:
-            'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+            'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
         failed: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
     };
 
@@ -170,6 +173,44 @@ function statusBadgeClass(s: string): string {
         map[s] ??
         'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
     );
+}
+
+function statusLabel(s: string): string {
+    const map: Record<string, string> = {
+        completed: 'สมบูรณ์',
+        partial: 'บางส่วน',
+        running: 'กำลังทำ',
+        pending: 'รอคิว',
+        failed: 'ล้มเหลว',
+    };
+
+    return map[s] ?? s;
+}
+
+/**
+ * Compute display status based on success/failed counts.
+ * "completed" only if ALL records succeeded.
+ * "partial" if SOME succeeded and SOME failed.
+ * "failed" if ALL records failed.
+ */
+function computeDisplayStatus(row: HistoryRow): string {
+    if (row.status === 'running' || row.status === 'pending') {
+        return row.status;
+    }
+
+    if (row.total > 0 && row.success > 0 && row.failed > 0) {
+        return 'partial';
+    }
+
+    if (row.total > 0 && row.success === 0 && row.failed > 0) {
+        return 'failed';
+    }
+
+    if (row.total > 0 && row.success > 0 && row.failed === 0) {
+        return 'completed';
+    }
+
+    return row.status;
 }
 
 function formatDuration(start: string | null, end: string | null): string {
@@ -525,11 +566,17 @@ function formatDate(s: string | null): string {
                                     <td class="px-3 py-2">
                                         <Badge
                                             :class="
-                                                statusBadgeClass(row.status)
+                                                statusBadgeClass(
+                                                    computeDisplayStatus(row),
+                                                )
                                             "
                                             variant="outline"
                                         >
-                                            {{ row.status }}
+                                            {{
+                                                statusLabel(
+                                                    computeDisplayStatus(row),
+                                                )
+                                            }}
                                         </Badge>
                                     </td>
                                     <td
