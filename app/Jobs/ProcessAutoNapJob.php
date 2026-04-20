@@ -140,7 +140,7 @@ class ProcessAutoNapJob implements ShouldQueue
                         $error,
                         $napLabCode,
                         $this->formType,
-                        $this->staffName ?: $napDisplayName,
+                        $this->staffName,
                     ),
                     $this->callbackUrl,
                 );
