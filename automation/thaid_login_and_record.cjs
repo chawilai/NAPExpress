@@ -1,6 +1,7 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const Ably = require('ably');
+const { parseDuplicateOrg, stripOrgPrefix, isSameOrg } = require('./org_match.cjs');
 
 /**
  * ThaiID Login + NAP RR Recording Script
@@ -1184,97 +1185,8 @@ function humanizeError(rawError) {
     return cleaned.length > 100 ? cleaned.substring(0, 100) + '...' : cleaned;
 }
 
-// ============================================================
-// Duplicate org detection helpers
-// ============================================================
-
-/**
- * Parse the duplicate error message to extract competing org info.
- * Example: "วันที่ให้บริการซ้ำกับ G1440 มูลนิธิน้ำกว๊านสีรุ้ง"
- * Returns: { code: "G1440", name: "มูลนิธิน้ำกว๊านสีรุ้ง" } or null
- */
-function parseDuplicateOrg(errorMessage) {
-    const match = (errorMessage || '').match(/ซ้ำกับ\s+(\S+)\s+(.+?)$/);
-    if (match) {
-        return { code: match[1].trim(), name: match[2].trim() };
-    }
-    return null;
-}
-
-/**
- * Check if the duplicate org is the SAME as our logged-in org.
- *
- * Thai orgs often have different legal prefixes for the same entity:
- *   - "ศูนย์บริการสุขภาพที่เป็นมิตรน้ำกว๊านสีรุ้ง" (operating name)
- *   - "มูลนิธิน้ำกว๊านสีรุ้ง" (foundation name)
- *   - "G1440 มูลนิธิน้ำกว๊านสีรุ้ง" (with code)
- *
- * Strategy: strip common prefixes, then compare the core name.
- */
-function isSameOrg(napSiteName, duplicateOrg) {
-    if (!napSiteName || !duplicateOrg) return false;
-
-    const coreName = stripOrgPrefix;
-    const ourCore = coreName(napSiteName);
-    const theirCore = coreName(duplicateOrg.name);
-
-    // Exact core match
-    if (ourCore && theirCore && (ourCore === theirCore)) return true;
-
-    // Partial core match (one contains the other)
-    if (ourCore && theirCore && (ourCore.includes(theirCore) || theirCore.includes(ourCore))) return true;
-
-    // Fallback: full name includes (original logic)
-    const ourFull = napSiteName.trim().toLowerCase();
-    const theirFull = duplicateOrg.name.trim().toLowerCase();
-    return ourFull.includes(theirFull) || theirFull.includes(ourFull);
-}
-
-/**
- * Strip common Thai org prefixes to get the core/unique name.
- * "มูลนิธิน้ำกว๊านสีรุ้ง" → "น้ำกว๊านสีรุ้ง"
- * "ศูนย์บริการสุขภาพที่เป็นมิตรน้ำกว๊านสีรุ้ง" → "น้ำกว๊านสีรุ้ง"
- */
-function stripOrgPrefix(name) {
-    if (!name) return '';
-    let n = name.trim();
-
-    // Remove hcode prefix like "G1440 " or "F0380 "
-    n = n.replace(/^[A-Z]\d{3,5}\s+/, '');
-
-    // Strip known org type prefixes (longest first to avoid partial matches)
-    const prefixes = [
-        'ศูนย์บริการสุขภาพที่เป็นมิตร',
-        'คลินิกเทคนิคการแพทย์',
-        'ศูนย์บริการ',
-        'สมาคมฟ้าสีรุ้งแห่งประเทศไทย สำนักงาน',
-        'สมาคมฟ้าสีรุ้งแห่งประเทศไทย',
-        'มูลนิธิเพื่อนพนักงานบริการ',
-        'มูลนิธิเอ็มพลัส จังหวัด',
-        'มูลนิธิเอ็มพลัส',
-        'มูลนิธิซิสเตอร์',
-        'มูลนิธิรักษ์ไทย จังหวัด',
-        'มูลนิธิรักษ์ไทย',
-        'มูลนิธิ',
-        'สมาคม',
-        'คลินิก',
-        'กลุ่มแอ็คทีม',
-        'กลุ่มเพื่อน',
-        'กลุ่ม',
-        'ชมรม',
-        'เครือข่าย',
-    ];
-
-    const lower = n.toLowerCase();
-    for (const p of prefixes) {
-        if (lower.startsWith(p.toLowerCase())) {
-            n = n.slice(p.length).trim();
-            break;
-        }
-    }
-
-    return n.toLowerCase();
-}
+// Duplicate org detection helpers moved to ./org_match.cjs
+// (parseDuplicateOrg, stripOrgPrefix, isSameOrg) — required at top of file.
 
 // ============================================================
 // Lookup existing codes (for duplicate handling)
@@ -1713,10 +1625,12 @@ async function run() {
             const item = items[i];
             const uic = item.uic || '';
             const pidMasked = 'xxxx' + (item.id_card || '').slice(-4);
+            const serviceDate = item.service_date || item.service_date_thai || item.rr_form?.rrttrDate || '';
+            const uicWithDate = serviceDate ? `${uic} (${serviceDate})` : uic;
 
             await ably?.publish('job:record:processing', {
-                jobId, index: i + 1, total, pidMasked, uic,
-                message: `📄 กำลังบันทึก ${formLabel} (${i + 1}/${total}) | ${uic} | PID: ${pidMasked}`,
+                jobId, index: i + 1, total, pidMasked, uic, serviceDate,
+                message: `📄 กำลังบันทึก ${formLabel} (${i + 1}/${total}) | ${uicWithDate} | PID: ${pidMasked}`,
             }, 300);
 
             await ably?.publish('job:record:searching', {
