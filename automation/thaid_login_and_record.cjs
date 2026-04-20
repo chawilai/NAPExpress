@@ -136,9 +136,9 @@ function buildRrCallback(item, fy, rrCode, napStaffName = '') {
     };
 }
 
-function buildErrorCallback(item, fy, error, vctCode) {
+function buildErrorCallback(item, fy, error, vctCode, napStaffName = '') {
     return {
-        ...buildBasePayload(item, fy),
+        ...buildBasePayload(item, fy, napStaffName),
         nap_vct_code: vctCode || null,
         nap_status: 'true',
         nap_comment: (error || '') + ' AutoNAP',
@@ -1591,7 +1591,7 @@ async function run() {
                 });
                 if (!isDryRun && cbUrl) {
                     await sendCallback(cbUrl, {
-                        ...buildErrorCallback(item, jobFy, sessionError, null),
+                        ...buildErrorCallback(item, jobFy, sessionError, null, cbStaff),
                         nap_comment: sessionError,
                     });
                 }
@@ -1730,7 +1730,7 @@ async function run() {
                                     if (!vctCode) {
                                         // Lookup failed — report original error
                                         if (!isDryRun && cbUrl) {
-                                            await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null));
+                                            await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null, cbStaff));
                                         }
                                         throw vctErr;
                                     }
@@ -1738,14 +1738,14 @@ async function run() {
                                     if (lookupErr === vctErr) throw lookupErr;
                                     log(jobId, `  Record ${i + 1}: Lookup failed = ${lookupErr.message}`);
                                     if (!isDryRun && cbUrl) {
-                                        await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null));
+                                        await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null, cbStaff));
                                     }
                                     throw vctErr;
                                 }
                             } else {
                                 // Non-duplicate error
                                 if (!isDryRun && cbUrl) {
-                                    await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null));
+                                    await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null, cbStaff));
                                 }
                                 throw vctErr;
                             }
@@ -1948,7 +1948,7 @@ async function run() {
                                 // Send callback with clear error
                                 if (!isDryRun && cbUrl) {
                                     await sendCallback(cbUrl, {
-                                        ...buildErrorCallback(item, jobFy, clearError, null),
+                                        ...buildErrorCallback(item, jobFy, clearError, null, cbStaff),
                                         nap_comment: clearError,
                                         claimed_by: claimedBy,
                                     });
@@ -2097,7 +2097,7 @@ async function run() {
                         });
                         if (!isDryRun && cbUrl) {
                             await sendCallback(cbUrl, {
-                                ...buildErrorCallback(skipItem, jobFy, abortMsg, null),
+                                ...buildErrorCallback(skipItem, jobFy, abortMsg, null, cbStaff),
                                 nap_comment: abortMsg,
                             });
                         }
