@@ -211,7 +211,7 @@ class DashboardController extends Controller
 
             if ($startedAt) {
                 try {
-                    $elapsedSeconds = max(0, now('Asia/Bangkok')->diffInSeconds($startedAt, false));
+                    $elapsedSeconds = max(0, now('Asia/Bangkok')->getTimestamp() - Carbon::parse($startedAt)->getTimestamp());
                 } catch (\Exception) {
                     $elapsedSeconds = 0;
                 }
