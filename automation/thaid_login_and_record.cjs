@@ -28,6 +28,7 @@ const NAP_URLS = {
     createHivLab: 'https://dmis.nhso.go.th/NAPPLUS/hivLabRequest/createHivLabRequest.do?actionName=load',
     createHivLabBase: 'https://dmis.nhso.go.th/NAPPLUS/hivLabRequest/createHivLabRequest.do',
     searchRR: 'https://dmis.nhso.go.th/NAPPLUS/rrttr/searchRRTTR.do',
+    searchRRHistory: 'https://dmis.nhso.go.th/NAPPLUS/rrttrHistory/searchRRTTRHistory.do',
     searchVCT: 'https://dmis.nhso.go.th/NAPPLUS/vct/searchVCT.do',
     searchHivLab: 'https://dmis.nhso.go.th/NAPPLUS/hivLabRequest/searchHivLabRequest.do',
     searchLabResult: 'https://dmis.nhso.go.th/NAPPLUS/responseLabRequest/searchResponseLabRequest.do',
@@ -1193,31 +1194,28 @@ function humanizeError(rawError) {
 // ============================================================
 
 /**
- * Lookup existing RR record by navigating to createRRTTR with PID + date+1.
+ * Lookup existing RR record via NAP's dedicated history search page.
  *
- * Strategy: NAP Plus shows "ประวัติการให้บริการ Reach&Recruit" at the bottom
- * of the confirmation page. We use a date AFTER the duplicate date to avoid
- * the same "ซ้ำ" error, then extract history from the table.
+ * Uses /NAPPLUS/rrttrHistory/searchRRTTRHistory.do which takes just a PID
+ * and returns a 5-column table with the RR code as an <a> link in col 2.
+ *
+ * Table columns:
+ *   0 = ลำดับที่ (seq)
+ *   1 = RR Number   ← <a href="...">RR-2026-1473078</a>
+ *   2 = หน่วยบริการ (provider)
+ *   3 = วันที่ให้บริการ (date, BE dd/mm/yyyy)
+ *   4 = สิทธิการรักษาพยาบาล (coverage)
  *
  * @param {import('playwright').Page} page
  * @param {string} pid - 13-digit PID
- * @param {string} originalDate - Thai Buddhist date (dd/mm/yyyy) that caused duplicate
+ * @param {string} originalDate - Thai BE date (dd/mm/yyyy) the user tried to submit (for match preference only)
  * @returns {{ rrCode: string|null, date: string|null, provider: string|null } | null}
  */
 async function lookupExistingRR(page, pid, originalDate) {
     try {
-        // Calculate date+1 in Thai Buddhist Era format
-        const lookupDate = incrementThaiDate(originalDate || '');
+        console.log(`[lookupRR] Searching history: PID=${pid} originalDate=${originalDate || 'N/A'}`);
 
-        if (!lookupDate) {
-            console.log('[lookupRR] Could not calculate lookup date from:', originalDate);
-            return null;
-        }
-
-        console.log(`[lookupRR] Searching history: PID=${pid}, lookup date=${lookupDate} (original=${originalDate})`);
-
-        // Navigate to create RR page
-        await page.goto(NAP_URLS.createRR, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await page.goto(NAP_URLS.searchRRHistory, { waitUntil: 'domcontentloaded', timeout: 15000 });
         await page.waitForLoadState('networkidle').catch(() => {});
 
         // Handle SSO redirect
@@ -1226,81 +1224,64 @@ async function lookupExistingRR(page, pid, originalDate) {
             await page.waitForLoadState('networkidle').catch(() => {});
         }
 
-        // Fill PID + date+1
-        await page.fill('input[name="rrttrDate"]', lookupDate);
+        // Fill PID only (no date needed — history search returns all entries for this PID)
         await page.fill('input[name="pid"]', pid);
-        await page.click('text=เพิ่มข้อมูลให้บริการ');
+        await page.click('input[name="cmdSearch"]').catch(async () => {
+            // Fallback: invoke the page's JS submit function directly
+            await page.evaluate(() => { if (typeof doSearch === 'function') doSearch(); });
+        });
         await page.waitForLoadState('networkidle').catch(() => {});
-        await delay(1500);
+        await delay(1200);
 
-        // Check if we got the confirmation page (with history table)
-        const isConfirm = await page.isVisible('text=แสดงข้อมูลสิทธิการรักษา').catch(() => false);
-
-        if (!isConfirm) {
-            // Might have got another "ซ้ำ" error for date+1 too
-            console.log('[lookupRR] Confirmation page not shown — trying to extract from current page');
-        }
-
-        // Extract history table "ประวัติการให้บริการ Reach&Recruit"
-        const history = await page.evaluate((origDate) => {
+        // Parse the result table
+        const history = await page.evaluate(() => {
             const tables = document.querySelectorAll('table.result');
             for (const table of tables) {
                 const rows = table.querySelectorAll('tbody tr');
                 const entries = [];
                 for (const row of rows) {
                     const cells = row.querySelectorAll('td');
-                    if (cells.length < 3) continue;
-                    const entry = {
+                    if (cells.length < 5) { continue; }
+                    const rrLink = cells[1]?.querySelector('a');
+                    const rrCode = (rrLink?.textContent || cells[1]?.textContent || '').trim() || null;
+                    entries.push({
                         seq: cells[0]?.textContent?.trim() || '',
-                        date: cells[1]?.textContent?.trim() || '',
+                        rrCode,
                         provider: cells[2]?.textContent?.trim() || '',
-                    };
-                    // Check for RR code in any cell (might be in a link or hidden column)
-                    for (const cell of cells) {
-                        const text = cell.textContent?.trim() || '';
-                        const rrMatch = text.match(/RR-\d{4}-\d+/);
-                        if (rrMatch) entry.rrCode = rrMatch[0];
-                        const linkEl = cell.querySelector('a[href]');
-                        if (linkEl) {
-                            const hrefMatch = linkEl.href?.match(/RR-\d{4}-\d+/) || linkEl.textContent?.match(/RR-\d{4}-\d+/);
-                            if (hrefMatch) entry.rrCode = hrefMatch[0];
-                        }
-                    }
-                    entries.push(entry);
+                        date: cells[3]?.textContent?.trim() || '',
+                        coverage: cells[4]?.textContent?.trim() || '',
+                    });
                 }
-                if (entries.length > 0) return entries;
+                if (entries.length > 0) { return entries; }
             }
             return [];
-        }, originalDate);
+        });
 
-        console.log(`[lookupRR] History entries found: ${history.length}`);
+        console.log(`[lookupRR] Found ${history.length} entries`);
         if (history.length > 0) {
             console.log('[lookupRR] Entries:', JSON.stringify(history));
         }
 
-        // Click "ย้อนกลับ" to not create a new record
-        await page.evaluate(() => {
-            if (typeof doBack === 'function') doBack();
-        }).catch(() => {});
-        await page.waitForLoadState('networkidle').catch(() => {});
+        if (history.length === 0) { return null; }
 
-        // Find matching entry for original date
-        if (history.length > 0) {
-            // Try exact date match first
-            const match = history.find(e => e.date === originalDate);
-            if (match) {
-                return {
-                    rrCode: match.rrCode || null,
-                    date: match.date,
-                    provider: match.provider,
-                };
+        // Prefer exact date match
+        if (originalDate) {
+            const exact = history.find(e => e.date === originalDate && e.rrCode);
+            if (exact) {
+                return { rrCode: exact.rrCode, date: exact.date, provider: exact.provider };
             }
-            // Return the most recent entry
-            return {
-                rrCode: history[0].rrCode || null,
-                date: history[0].date,
-                provider: history[0].provider,
-            };
+        }
+
+        // Fallback: most recent entry with an RR code (sort BE date DESC)
+        const withCode = history.filter(e => e.rrCode && e.date).sort((a, b) => {
+            const [da, ma, ya] = a.date.split('/');
+            const [db, mb, yb] = b.date.split('/');
+            return (yb + mb + db).localeCompare(ya + ma + da);
+        });
+
+        if (withCode.length > 0) {
+            const top = withCode[0];
+            return { rrCode: top.rrCode, date: top.date, provider: top.provider };
         }
 
         return null;
@@ -1308,23 +1289,6 @@ async function lookupExistingRR(page, pid, originalDate) {
         console.log(`[lookupRR] Error: ${e.message}`);
         return null;
     }
-}
-
-/**
- * Increment a Thai Buddhist date string by 1 day.
- * "21/01/2569" → "22/01/2569"
- */
-function incrementThaiDate(thaiDate) {
-    const match = thaiDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (!match) return null;
-    const [, dd, mm, yyyy] = match;
-    const ceYear = parseInt(yyyy) - 543;
-    const d = new Date(ceYear, parseInt(mm) - 1, parseInt(dd));
-    d.setDate(d.getDate() + 1);
-    const newDay = String(d.getDate()).padStart(2, '0');
-    const newMonth = String(d.getMonth() + 1).padStart(2, '0');
-    const newYear = d.getFullYear() + 543;
-    return `${newDay}/${newMonth}/${newYear}`;
 }
 
 /**
