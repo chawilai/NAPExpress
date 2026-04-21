@@ -40,9 +40,9 @@ const submit = () => {
     <div
         class="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 font-['Outfit'] sm:px-6 lg:px-8 dark:bg-slate-950"
     >
-        <div class="w-full max-w-md space-y-8">
+        <div class="w-full max-w-md space-y-10">
             <div class="flex flex-col items-center">
-                <Link :href="'/'" class="flex items-center gap-2">
+                <Link :href="'/'" class="flex items-center gap-2.5">
                     <img
                         src="/assets/logo.png"
                         alt="NAPExpress"
@@ -54,12 +54,12 @@ const submit = () => {
                     >
                 </Link>
                 <h2
-                    class="mt-6 text-center text-3xl font-extrabold text-slate-900 dark:text-white"
+                    class="mt-8 text-center text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white"
                 >
                     Welcome back
                 </h2>
                 <p
-                    class="mt-2 text-center text-sm text-slate-600 dark:text-slate-400"
+                    class="mt-3 text-center text-sm text-slate-600 dark:text-slate-400"
                 >
                     Sign in to your account to manage your NAP reports
                 </p>
@@ -69,22 +69,22 @@ const submit = () => {
                 class="border-slate-200 shadow-xl dark:border-slate-800 dark:bg-slate-900"
             >
                 <form @submit.prevent="submit">
-                    <CardHeader class="space-y-1">
+                    <CardHeader class="space-y-2 pt-8 pb-4">
                         <CardTitle class="text-2xl">Login</CardTitle>
                         <CardDescription>
                             Enter your email and password below to access your
                             account.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent class="grid gap-4">
+                    <CardContent class="grid gap-6 pt-2">
                         <div
                             v-if="status"
-                            class="mb-4 text-sm font-medium text-green-600 dark:text-green-400"
+                            class="rounded-md bg-green-50 px-3 py-2 text-sm font-medium text-green-700 dark:bg-green-950 dark:text-green-400"
                         >
                             {{ status }}
                         </div>
 
-                        <div class="grid gap-2">
+                        <div class="grid gap-2.5">
                             <Label for="email">Email</Label>
                             <div class="relative">
                                 <Mail
@@ -94,7 +94,7 @@ const submit = () => {
                                     id="email"
                                     type="email"
                                     placeholder="name@organization.com"
-                                    class="pl-10"
+                                    class="h-11 pl-10"
                                     v-model="form.email"
                                     required
                                     autofocus
@@ -109,7 +109,7 @@ const submit = () => {
                             </p>
                         </div>
 
-                        <div class="grid gap-2">
+                        <div class="grid gap-2.5">
                             <div class="flex items-center justify-between">
                                 <Label for="password">Password</Label>
                                 <a
@@ -127,7 +127,7 @@ const submit = () => {
                                     id="password"
                                     type="password"
                                     placeholder="••••••••"
-                                    class="pl-10"
+                                    class="h-11 pl-10"
                                     v-model="form.password"
                                     required
                                     autocomplete="current-password"
@@ -141,20 +141,20 @@ const submit = () => {
                             </p>
                         </div>
 
-                        <div class="flex items-center space-x-2">
+                        <div class="flex items-center space-x-2 pt-1">
                             <Checkbox
                                 id="remember"
                                 v-model:checked="form.remember"
                             />
                             <Label
                                 for="remember"
-                                class="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                class="cursor-pointer text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                             >
                                 Remember me
                             </Label>
                         </div>
                     </CardContent>
-                    <CardFooter class="flex flex-col gap-4">
+                    <CardFooter class="flex flex-col gap-5 pt-6 pb-8">
                         <Button
                             class="h-11 w-full bg-teal-600 text-white hover:bg-teal-700"
                             :disabled="form.processing"
@@ -171,7 +171,7 @@ const submit = () => {
                             Don't have an account?
                             <Link
                                 :href="register()"
-                                class="font-semibold text-teal-600 hover:underline dark:text-teal-400"
+                                class="ml-1 font-semibold text-teal-600 hover:underline dark:text-teal-400"
                             >
                                 Register now
                             </Link>
