@@ -199,16 +199,19 @@ async function delay(ms) {
 // Ably Helper
 // ============================================================
 
-function createAblyPublisher(ablyKey, channelName) {
+function createAblyPublisher(ablyKey, channelName, meta = {}) {
     if (!ablyKey || !channelName) return null;
 
     const ably = new Ably.Rest(ablyKey);
     const channel = ably.channels.get(channelName);
 
+    // `meta` is merged into every event so the subscriber (CAREMAT) can
+    // distinguish parallel jobs (e.g. mplus_cmi RR + mplus_cmi VCT running
+    // at the same time) by formType / site / jobId.
     return {
         publish: async (event, data, delayMs = 0) => {
             try {
-                await channel.publish(event, data);
+                await channel.publish(event, { ...meta, ...data });
                 if (delayMs > 0) await delay(delayMs);
             } catch (e) {
                 console.error(`Ably error [${event}]:`, e.message);
@@ -1397,10 +1400,10 @@ async function lookupExistingResult(page, labCode) {
 async function run() {
     const { jobId, dataFile } = parseArgs();
     const jobData = readDataFile(dataFile);
-    const { ablyKey, ablyChannel, items, callbackUrl, dryRun, formType, staffName: jobStaffName } = jobData;
+    const { ablyKey, ablyChannel, site, items, callbackUrl, dryRun, formType, staffName: jobStaffName } = jobData;
 
     const { callbackUrl: cbUrl, fy: jobFy } = jobData;
-    const ably = createAblyPublisher(ablyKey, ablyChannel);
+    const ably = createAblyPublisher(ablyKey, ablyChannel, { jobId, formType, site });
     const total = items?.length || 0;
     const isDryRun = !!dryRun;
     const isVCT = (formType || 'RR').toUpperCase() === 'VCT';

@@ -68,6 +68,7 @@ class ProcessAutoNapJob implements ShouldQueue
         file_put_contents($dataFile, json_encode([
             'ablyKey' => $ablyKey,
             'ablyChannel' => $this->ablyChannel,
+            'site' => $this->site,
             'items' => $this->items,
             'dryRun' => $this->dryRun,
             'formType' => $this->formType,
