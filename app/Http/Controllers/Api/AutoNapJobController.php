@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessAutoNapJob;
 use App\Models\AutonapRequest;
+use App\Services\AutoNapAuditLogger;
 use App\Services\HcodeValidatorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -101,6 +102,16 @@ class AutoNapJobController extends Controller
 
         // Use full items from request (not $validated which strips extra rr_form fields)
         $items = $request->input('items');
+
+        // Temporary audit log — snapshot incoming request for traceback
+        AutoNapAuditLogger::record(
+            $jobId,
+            $site,
+            $formType,
+            $validated['staff_name'] ?? null,
+            $items,
+            $validated['callback_url'] ?? null,
+        );
 
         // Soft hcode validation — log any next_hcode not found in CPP registry (non-fatal)
         if ($formType === 'RR') {

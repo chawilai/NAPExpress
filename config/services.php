@@ -39,4 +39,19 @@ return [
         'key' => env('ABLY_KEY'),
     ],
 
+    'autonap' => [
+        /*
+         * Write a JSON snapshot of every incoming /api/jobs request to
+         * storage/app/autonap_audit/YYYY-MM-DD/{job_id}.json for traceback.
+         * Temporary — set to false once data quality is stable.
+         */
+        'audit_enabled' => env('AUTONAP_AUDIT_ENABLED', true),
+
+        /*
+         * When true, store the full 13-digit PID in audit files.
+         * When false (default), mask to xxxxxxxxx + last 4 digits.
+         */
+        'audit_full_pid' => env('AUTONAP_AUDIT_FULL_PID', false),
+    ],
+
 ];
