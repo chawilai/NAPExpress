@@ -1501,7 +1501,7 @@ async function run() {
         // ============================================================
         await ably?.publish('job:preparing', {
             jobId, total,
-            message: `📋 กำลังเตรียมข้อมูล ${total} รายการ... (headless mode)`,
+            message: `📋 กำลังเตรียมข้อมูล ${total} รายการ...`,
         }, 1000);
 
         const BATCH_SIZE = 25; // Restart browser every N records to prevent memory leak
@@ -2050,7 +2050,7 @@ async function run() {
                     log(jobId, `  Record ${i + 1} session error (attempt ${consecutiveSessionErrors}/2) — re-injecting cookies...`);
                     await ably?.publish('job:preparing', {
                         jobId, total,
-                        message: `🔄 เซสชันหลุด — กำลัง re-inject cookies... (${i + 1}/${total})`,
+                        message: `🔄 เซสชันหลุด — กำลังเชื่อมต่อใหม่... (${i + 1}/${total})`,
                     }, 500);
 
                     try {
@@ -2118,6 +2118,12 @@ async function run() {
                     message: `❌ ล้มเหลว (${i + 1}/${total}) | ${friendlyError}`,
                 }, 300);
             }
+
+            try {
+                await writeResults(dataFile, results, { napDisplayName, napSiteName, staffName: cbStaff }, { silent: true });
+            } catch (e) {
+                log(jobId, `Persist failed: ${e.message}`);
+            }
         }
 
         // Summary
@@ -2144,10 +2150,15 @@ async function run() {
     await writeResults(dataFile, results, { napDisplayName, napSiteName, staffName: cbStaff });
 }
 
-async function writeResults(dataFile, results, meta = {}) {
+async function writeResults(dataFile, results, meta = {}, { silent = false } = {}) {
     const resultsFile = dataFile.replace('.json', '_results.json');
-    fs.writeFileSync(resultsFile, JSON.stringify({ ...meta, results }, null, 2));
-    console.log(`Results: ${resultsFile}`);
+    const tmpFile = resultsFile + '.tmp';
+    fs.writeFileSync(tmpFile, JSON.stringify({ ...meta, results }, null, 2));
+    fs.renameSync(tmpFile, resultsFile);
+
+    if (!silent) {
+        console.log(`Results: ${resultsFile}`);
+    }
 }
 
 run().catch(err => {

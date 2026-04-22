@@ -49,7 +49,7 @@ class AblyProgressService
             'jobId' => $jobId,
             'total' => $total,
             'siteName' => $siteName,
-            'message' => "🔐 เริ่มบันทึก NAP RR ({$total} records) — {$siteName}",
+            'message' => "🔐 เริ่มบันทึก NAP RR ({$total} รายการ) — {$siteName}",
         ], 500);
     }
 
