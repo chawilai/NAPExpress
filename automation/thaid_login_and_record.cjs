@@ -289,13 +289,33 @@ async function loginViaThaiId(page, ably, jobId, startUrl = NAP_URLS.createRR) {
         return match ? match[1] : null;
     });
 
+    // Build ThaiD deep link so a user on the same mobile device can TAP
+    // the link to open the ThaiD app directly (no second device to scan).
+    // Try to find cdt:// URL in page first, fall back to constructing from txID.
+    const embeddedDeepLink = await page.evaluate(() => {
+        const match = document.documentElement.outerHTML.match(/cdt:\/\/[^\s"'<>)]+/);
+        return match ? match[0] : null;
+    }).catch(() => null);
+
+    let thaidDeepLink = embeddedDeepLink;
+
+    if (!thaidDeepLink) {
+        const txIDMatch = page.url().match(/txID=([a-f0-9-]+)/i);
+        if (txIDMatch) {
+            thaidDeepLink = `cdt://imauth.bora.dopa.go.th?txID=${txIDMatch[1]}&to=external`;
+        }
+    }
+
     // Publish QR code to Ably — nhsoForReach.php will display this
     await ably?.publish('job:thaid:qr', {
         jobId,
         qrImage: qrData.src,
         refCode: refCode || '',
+        thaidDeepLink: thaidDeepLink || null,
         message: '📱 กรุณาสแกน QR Code ด้วยแอป ThaiD',
-        hint: 'เปิดแอป ThaiD บนมือถือ → สแกน QR Code → ยืนยันตัวตน',
+        hint: thaidDeepLink
+            ? 'สแกน QR บนเครื่องอื่น หรือ ถ้าอยู่บนมือถือกดลิงก์เพื่อเปิดแอป ThaiD ได้เลย'
+            : 'เปิดแอป ThaiD บนมือถือ → สแกน QR Code → ยืนยันตัวตน',
     });
 
     log(jobId, `QR code sent via Ably (ref: ${refCode || 'N/A'})`);
