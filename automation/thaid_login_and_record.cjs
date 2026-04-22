@@ -1710,6 +1710,13 @@ async function run() {
                                                 await sendCallback(cbUrl, { ...buildLabCallback(item, jobFy, labCode, cbStaff), nap_comment: comment });
                                                 await sendCallback(cbUrl, { ...buildResultCallback(item, jobFy, existingResult.result, cbStaff), nap_comment: comment });
                                             }
+                                            // Surface 'existing record — all 3 steps done' to the UI so
+                                            // the progress modal doesn't look stuck between records.
+                                            await ably?.publish('job:record:success', {
+                                                jobId, index: i + 1, total, uic, pidMasked,
+                                                napCode: vctCode, labCode,
+                                                message: `🔄 ดึงค่าเดิมครบ (${i + 1}/${total}) | VCT: ${vctCode} | Lab: ${labCode} | ผล: ${existingResult.result}`,
+                                            }, 300);
                                             // Skip further steps for this record
                                             results.push({
                                                 id_card: item.id_card, uic, success: true,
