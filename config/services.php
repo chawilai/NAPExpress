@@ -52,6 +52,14 @@ return [
          * When false (default), mask to xxxxxxxxx + last 4 digits.
          */
         'audit_full_pid' => env('AUTONAP_AUDIT_FULL_PID', false),
+
+        /*
+         * Number of queue workers running in Supervisor (numprocs). Used to
+         * decide whether a newly dispatched job is "queued" (all workers busy)
+         * or can start immediately. Keep in sync with
+         * /etc/supervisor/conf.d/autonap-worker.conf.
+         */
+        'worker_count' => (int) env('AUTONAP_WORKER_COUNT', 4),
     ],
 
 ];

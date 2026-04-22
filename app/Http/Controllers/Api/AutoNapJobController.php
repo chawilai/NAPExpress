@@ -151,15 +151,19 @@ class AutoNapJobController extends Controller
             staffName: $staffName,
         );
 
-        // Check queue depth and estimate wait time
-        $queueDepth = DB::table('jobs')->count();
-        $queued = $queueDepth > 1;
+        // A job is "queued" only when every worker is already busy. With N
+        // workers, up to N jobs can run concurrently without waiting.
+        $workerCount = (int) config('services.autonap.worker_count', 4);
+        $totalInFlight = DB::table('jobs')->count();
+        $queued = $totalInFlight > $workerCount;
         $estimatedWaitMinutes = null;
 
         if ($queued) {
-            // Count records ahead in queue (pending/running jobs excluding this one)
+            // Exclude zombie AutonapRequests stuck in 'pending' (old jobs that
+            // never transitioned to completed/failed) from the wait estimate.
             $recordsAhead = AutonapRequest::whereIn('status', ['pending', 'running'])
                 ->where('job_id', '!=', $jobId)
+                ->where('created_at', '>', now()->subHours(2))
                 ->sum('total');
 
             // Calculate avg seconds per record from completed jobs
@@ -170,25 +174,35 @@ class AutoNapJobController extends Controller
                 ->selectRaw('AVG(TIMESTAMPDIFF(SECOND, started_at, finished_at) / total) as avg')
                 ->value('avg');
 
-            $avgPerRecord = $avgPerRecord ?: 40; // default 40s if no data yet
-            $estimatedWaitMinutes = (int) ceil(($recordsAhead * $avgPerRecord) / 60);
+            $avgPerRecord = $avgPerRecord ?: 40;
+            // Workers process jobs in parallel — divide total work by worker count
+            $estimatedWaitMinutes = (int) ceil(($recordsAhead * $avgPerRecord) / ($workerCount * 60));
+
+            if ($estimatedWaitMinutes < 1) {
+                $estimatedWaitMinutes = 1;
+            }
         }
 
-        return response()->json([
+        $response = [
             'status' => 'ok',
             'job_id' => $jobId,
             'form_type' => $formType,
             'method' => $method,
             'total' => count($validated['items']),
             'queued' => $queued,
-            'estimated_wait_minutes' => $estimatedWaitMinutes,
             'message' => $queued
-                ? "Job อยู่ในคิว (มี {$queueDepth} งานรอ ประมาณ {$estimatedWaitMinutes} นาที) — QR code จะแสดงเมื่อถึงคิว"
+                ? "Job อยู่ในคิว ({$totalInFlight} งานในระบบ / {$workerCount} workers — ประมาณ {$estimatedWaitMinutes} นาที) — QR code จะแสดงเมื่อถึงคิว"
                 : ($method === 'ThaiID'
                     ? 'Job dispatched. QR code will be sent via Ably — scan with ThaiD app.'
                     : 'Job dispatched. Subscribe to Ably channel for progress.'),
             'ably_channel' => $validated['ably_channel'] ?? null,
-        ]);
+        ];
+
+        if ($queued) {
+            $response['estimated_wait_minutes'] = $estimatedWaitMinutes;
+        }
+
+        return response()->json($response);
     }
 
     /**
