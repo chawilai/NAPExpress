@@ -500,22 +500,10 @@ async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
     }
     if (rrForm.next_hcode) await page.fill('#next_hcode', rrForm.next_hcode).catch(() => {});
 
-    // Forwards: if CAREMAT sends any value for HIV/STI/TB/HCV AND next_hcode
-    // is filled, click "เจ้าหน้าที่พาไป" (1). If CAREMAT doesn't send → leave
-    // unclicked, NAP default = "ไม่ส่งต่อ". Methadone passes through unchanged.
-    const accompanyServices = ['hiv', 'sti', 'tb', 'hcv'];
-    const sourceForwards = rrForm.forwards || {};
-    const forwardsToClick = { ...sourceForwards };
-
-    if (rrForm.next_hcode) {
-        for (const svc of accompanyServices) {
-            if (sourceForwards[svc]) {
-                forwardsToClick[svc] = '1';
-            }
-        }
-    }
-
-    for (const [svc, val] of Object.entries(forwardsToClick)) {
+    // Forwards: CAREMAT controls the value per site / per record.
+    // 1 = เจ้าหน้าที่พาไป, 2 = ไปเอง, 3 = ไม่ส่งต่อ. Null/missing = don't click
+    // (NAP default = ไม่ส่งต่อ). No AutoNAP-side override.
+    for (const [svc, val] of Object.entries(rrForm.forwards || {})) {
         if (val) await page.check(`#${svc}_forward_${val}`).catch(() => {});
     }
 
