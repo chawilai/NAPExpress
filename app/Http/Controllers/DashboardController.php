@@ -59,8 +59,9 @@ class DashboardController extends Controller
             ? round(($summary->total_success / $summary->total_records) * 100, 1)
             : 0;
 
-        // Paginated history with search
+        // Paginated history with search — scoped to the selected period
         $historyQuery = AutonapRequest::query()
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->orderByDesc('created_at');
 
         if ($search = $request->input('q')) {
