@@ -450,14 +450,18 @@ async function fillAndSubmitRecord(page, rrForm, dryRun = false) {
             || [9, 12, 15].some(i => (rf.target_group_indices || []).includes(i));
         if (isSw) setRadio('sw_type', '2');
 
-        // Knowledge — always check all 5
-        for (let i = 0; i < 5; i++) clickCheckbox(`rrttr_knowledge_status_${i}`);
+        // Knowledge — use CAREMAT's indices (incl. empty []); fall back to all 5
+        // only when the field is absent (backward compat with older CAREMAT).
+        const knowledgeIndices = Array.isArray(rf.knowledge_indices)
+            ? rf.knowledge_indices
+            : [0, 1, 2, 3, 4];
+        for (const idx of knowledgeIndices) { clickCheckbox(`rrttr_knowledge_status_${idx}`); }
 
         // Places
-        for (const idx of rf.place_indices || []) clickCheckbox(`rrttr_place_status_${idx}`);
+        for (const idx of rf.place_indices || []) { clickCheckbox(`rrttr_place_status_${idx}`); }
 
         // PPE
-        for (const idx of rf.ppe_indices || []) clickCheckbox(`rrttr_ppe_status_${idx}`);
+        for (const idx of rf.ppe_indices || []) { clickCheckbox(`rrttr_ppe_status_${idx}`); }
     }, rrForm);
 
     // Debug: verify checkboxes were checked
