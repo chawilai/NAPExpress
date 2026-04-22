@@ -85,9 +85,9 @@ async function sendCallback(callbackUrl, payload) {
     }
 }
 
-function buildBasePayload(item, fy, napStaffName = '') {
+function buildBasePayload(item, fy, napStaffName = '', formType = 'VCT') {
     return {
-        form_type: 'VCT',
+        form_type: formType,
         source_id: item.source_id,
         source: item.source,
         uic: item.uic || null,
@@ -102,7 +102,7 @@ function buildBasePayload(item, fy, napStaffName = '') {
 
 function buildVctCallback(item, fy, vctCode, napStaffName = '') {
     return {
-        ...buildBasePayload(item, fy, napStaffName),
+        ...buildBasePayload(item, fy, napStaffName, 'VCT'),
         nap_vct_code: vctCode,
         vct_nap_status: 'true',
         nap_comment: 'VCT AutoNAP',
@@ -111,7 +111,7 @@ function buildVctCallback(item, fy, vctCode, napStaffName = '') {
 
 function buildLabCallback(item, fy, labCode, napStaffName = '') {
     return {
-        ...buildBasePayload(item, fy, napStaffName),
+        ...buildBasePayload(item, fy, napStaffName, 'VCT'),
         nap_code: labCode,
         nap_lab_code: labCode,
         nap_status: 'true',
@@ -121,7 +121,7 @@ function buildLabCallback(item, fy, labCode, napStaffName = '') {
 
 function buildResultCallback(item, fy, hivResult, napStaffName = '') {
     return {
-        ...buildBasePayload(item, fy, napStaffName),
+        ...buildBasePayload(item, fy, napStaffName, 'VCT'),
         hiv_result: hivResult,
         nap_status: 'true',
         nap_comment: 'VCT, Lab, Result AutoNAP',
@@ -130,16 +130,16 @@ function buildResultCallback(item, fy, hivResult, napStaffName = '') {
 
 function buildRrCallback(item, fy, rrCode, napStaffName = '') {
     return {
-        ...buildBasePayload(item, fy, napStaffName),
+        ...buildBasePayload(item, fy, napStaffName, 'RR'),
         nap_code: rrCode,
         nap_status: 'true',
         nap_comment: 'RR AutoNAP',
     };
 }
 
-function buildErrorCallback(item, fy, error, vctCode, napStaffName = '') {
+function buildErrorCallback(item, fy, error, vctCode, napStaffName = '', formType = 'VCT') {
     return {
-        ...buildBasePayload(item, fy, napStaffName),
+        ...buildBasePayload(item, fy, napStaffName, formType),
         nap_vct_code: vctCode || null,
         nap_status: 'true',
         nap_comment: (error || '') + ' AutoNAP',
@@ -1585,7 +1585,7 @@ async function run() {
                 });
                 if (!isDryRun && cbUrl) {
                     await sendCallback(cbUrl, {
-                        ...buildErrorCallback(item, jobFy, sessionError, null, cbStaff),
+                        ...buildErrorCallback(item, jobFy, sessionError, null, cbStaff, formType),
                         nap_comment: sessionError,
                     });
                 }
@@ -1731,7 +1731,7 @@ async function run() {
                                     if (!vctCode) {
                                         // Lookup failed — report original error
                                         if (!isDryRun && cbUrl) {
-                                            await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null, cbStaff));
+                                            await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null, cbStaff, formType));
                                         }
                                         throw vctErr;
                                     }
@@ -1739,14 +1739,14 @@ async function run() {
                                     if (lookupErr === vctErr) throw lookupErr;
                                     log(jobId, `  Record ${i + 1}: Lookup failed = ${lookupErr.message}`);
                                     if (!isDryRun && cbUrl) {
-                                        await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null, cbStaff));
+                                        await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null, cbStaff, formType));
                                     }
                                     throw vctErr;
                                 }
                             } else {
                                 // Non-duplicate error
                                 if (!isDryRun && cbUrl) {
-                                    await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null, cbStaff));
+                                    await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null, cbStaff, formType));
                                 }
                                 throw vctErr;
                             }
@@ -1949,7 +1949,7 @@ async function run() {
                                 // Send callback with clear error
                                 if (!isDryRun && cbUrl) {
                                     await sendCallback(cbUrl, {
-                                        ...buildErrorCallback(item, jobFy, clearError, null, cbStaff),
+                                        ...buildErrorCallback(item, jobFy, clearError, null, cbStaff, formType),
                                         nap_comment: clearError,
                                         claimed_by: claimedBy,
                                     });
@@ -2098,7 +2098,7 @@ async function run() {
                         });
                         if (!isDryRun && cbUrl) {
                             await sendCallback(cbUrl, {
-                                ...buildErrorCallback(skipItem, jobFy, abortMsg, null, cbStaff),
+                                ...buildErrorCallback(skipItem, jobFy, abortMsg, null, cbStaff, formType),
                                 nap_comment: abortMsg,
                             });
                         }
