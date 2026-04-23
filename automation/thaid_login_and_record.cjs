@@ -947,7 +947,7 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         vctCode = await page.evaluate(() => {
             // Look for VCT ID pattern in page text
             const text = document.body.innerText;
-            const match = text.match(/V\d{2}-\d+-\d+/);
+            const match = text.match(/V\d{2}-[A-Z0-9]+-\d+/);
             if (match) return match[0];
 
             // Fallback: look in table cells
@@ -1345,7 +1345,7 @@ async function lookupExistingVCT(page, pid) {
             const cells = row.querySelectorAll('td');
             for (const cell of cells) {
                 const text = cell.textContent?.trim() || '';
-                const match = text.match(/V\d{2}-\d+-\d+/);
+                const match = text.match(/V\d{2}-[A-Z0-9]+-\d+/);
                 if (match) return match[0];
             }
         }
@@ -1706,7 +1706,11 @@ async function run() {
                                             // Send all 3 callbacks with existing data
                                             if (!isDryRun && cbUrl) {
                                                 const comment = 'VCT,Lab,Result ครบ ดึงค่าเดิม';
-                                                await sendCallback(cbUrl, { ...buildVctCallback(item, jobFy, vctCode, cbStaff), nap_comment: comment });
+                                                if (vctCode) {
+                                                    await sendCallback(cbUrl, { ...buildVctCallback(item, jobFy, vctCode, cbStaff), nap_comment: comment });
+                                                } else {
+                                                    log(jobId, `  Record ${i + 1}: ข้าม VCT callback — ไม่พบ VCT code เดิม (ส่งแค่ Lab + Result)`);
+                                                }
                                                 await sendCallback(cbUrl, { ...buildLabCallback(item, jobFy, labCode, cbStaff), nap_comment: comment });
                                                 await sendCallback(cbUrl, { ...buildResultCallback(item, jobFy, existingResult.result, cbStaff), nap_comment: comment });
                                             }
