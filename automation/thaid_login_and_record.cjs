@@ -947,7 +947,7 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
         vctCode = await page.evaluate(() => {
             // Look for VCT ID pattern in page text
             const text = document.body.innerText;
-            const match = text.match(/V\d{2}-[A-Z0-9]+-\d+/);
+            const match = text.match(/V\d{2}-[A-Z0-9]+-[A-Z0-9]+/i);
             if (match) return match[0];
 
             // Fallback: look in table cells
@@ -1345,7 +1345,7 @@ async function lookupExistingVCT(page, pid) {
             const cells = row.querySelectorAll('td');
             for (const cell of cells) {
                 const text = cell.textContent?.trim() || '';
-                const match = text.match(/V\d{2}-[A-Z0-9]+-\d+/);
+                const match = text.match(/V\d{2}-[A-Z0-9]+-[A-Z0-9]+/i);
                 if (match) return match[0];
             }
         }
