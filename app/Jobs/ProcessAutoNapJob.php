@@ -160,9 +160,14 @@ class ProcessAutoNapJob implements ShouldQueue
         Cache::forget("autonap:{$this->site}:{$this->formType}");
 
         if ($isLoginTimeout) {
-            // Login timeout — skip database + email (not a real job)
-            Log::info("AutoNAP: Login timeout — skipping report for {$this->jobId}");
-            AutonapRequest::where('job_id', $this->jobId)->delete();
+            // Login timeout — keep the row with a user-facing reason instead of deleting.
+            Log::info("AutoNAP: Login timeout — marking failed for {$this->jobId}");
+            AutonapRequest::where('job_id', $this->jobId)->update([
+                'status' => 'failed',
+                'failed' => $total,
+                'finished_at' => $finishedAt,
+                'fail_reason' => 'ไม่ได้สแกน ThaiD ภายใน 1 นาที',
+            ]);
         } else {
             // Save to database
             $this->saveToDatabase($napDisplayName, $napSiteName, $startedAt, $finishedAt, $success, $failed, $results);
@@ -237,12 +242,21 @@ class ProcessAutoNapJob implements ShouldQueue
                 return;
             }
 
+            $isAllFailed = $failed === count($results);
+            $failReason = null;
+
+            if ($isAllFailed && ! empty($results)) {
+                $firstError = (string) ($results[0]['error'] ?? '');
+                $failReason = $firstError !== '' ? mb_substr($firstError, 0, 200) : null;
+            }
+
             $request->update([
                 'nap_user' => $napDisplayName ?: null,
                 'nap_site' => $napSiteName ?: null,
                 'success' => $success,
                 'failed' => $failed,
-                'status' => $failed === count($results) ? 'failed' : 'completed',
+                'status' => $isAllFailed ? 'failed' : 'completed',
+                'fail_reason' => $failReason,
                 'started_at' => $startedAt,
                 'finished_at' => $finishedAt,
             ]);
@@ -331,6 +345,7 @@ class ProcessAutoNapJob implements ShouldQueue
         AutonapRequest::where('job_id', $this->jobId)->update([
             'status' => 'failed',
             'finished_at' => now('Asia/Bangkok'),
+            'fail_reason' => 'ระบบผิดพลาด: '.mb_substr((string) $exception?->getMessage(), 0, 200),
         ]);
 
         Cache::forget("autonap:{$this->site}:{$this->formType}");

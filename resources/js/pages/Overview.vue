@@ -50,6 +50,7 @@ interface HistoryRow {
     success: number;
     failed: number;
     status: string;
+    fail_reason: string | null;
     started_at: string | null;
     finished_at: string | null;
     created_at: string;
@@ -570,6 +571,14 @@ function formatDate(s: string | null): string {
                                                 )
                                             }}
                                         </Badge>
+
+                                        <div
+                                            v-if="row.fail_reason"
+                                            class="mt-1 max-w-xs truncate text-xs text-rose-600 dark:text-rose-400"
+                                            :title="row.fail_reason"
+                                        >
+                                            {{ row.fail_reason }}
+                                        </div>
                                     </td>
                                     <td
                                         class="px-3 py-2 text-xs text-slate-500"
