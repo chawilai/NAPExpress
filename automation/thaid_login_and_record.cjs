@@ -137,13 +137,35 @@ function buildRrCallback(item, fy, rrCode, napStaffName = '') {
     };
 }
 
+// Terminal errors where AutoNAP cannot recover on retry — PID not in NAP
+// population DB, or case claimed by another org. CAREMAT receives a sentinel
+// nap_code/nap_vct_code so the record doesn't loop back into the "pending" queue.
+const TERMINAL_ERROR_SENTINEL = '9999';
+
+function isTerminalError(error) {
+    if (!error) return false;
+    const msg = String(error);
+    return (
+        msg.includes('ไม่พบข้อมูลบุคคล')
+        || msg.includes('ถูก claim')
+        || msg.includes('ถูก Claim')
+    );
+}
+
 function buildErrorCallback(item, fy, error, vctCode, napStaffName = '', formType = 'VCT') {
-    return {
+    const terminal = isTerminalError(error);
+    const payload = {
         ...buildBasePayload(item, fy, napStaffName, formType),
-        nap_vct_code: vctCode || null,
+        nap_vct_code: vctCode || (terminal && formType === 'VCT' ? TERMINAL_ERROR_SENTINEL : null),
         nap_status: 'true',
         nap_comment: (error || '') + ' AutoNAP',
     };
+
+    if (terminal && formType !== 'VCT') {
+        payload.nap_code = TERMINAL_ERROR_SENTINEL;
+    }
+
+    return payload;
 }
 
 function readDataFile(dataFile) {
