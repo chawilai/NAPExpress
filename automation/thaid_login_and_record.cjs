@@ -1322,6 +1322,53 @@ async function lookupExistingRR(page, pid, originalDate) {
 }
 
 /**
+ * Extract VCT info directly from the VCT entry page after a duplicate error.
+ * NAP Plus shows the patient's existing VCT ID + visit history (cross-org visible)
+ * on the same page when submission is rejected, so we read it in place instead of
+ * navigating to a separate search screen that is scoped to the current org.
+ *
+ * Returns { vctCode: string|null, history: Array<{date, org}> }.
+ */
+async function extractVctPageInfo(page) {
+    try {
+        return await page.evaluate(() => {
+            const result = { vctCode: null, history: [] };
+
+            // VCT ID — match anywhere on page text
+            const bodyText = document.body.innerText || '';
+            const vctMatch = bodyText.match(/V\d{2}-[A-Z0-9]+-[A-Z0-9]+/i);
+            if (vctMatch) result.vctCode = vctMatch[0];
+
+            // History table — find the one with "วันที่เข้ารับบริการ" + "หน่วยงาน" headers
+            const tables = document.querySelectorAll('table');
+            for (const table of tables) {
+                const headerText = [...table.querySelectorAll('th')]
+                    .map(th => th.textContent?.trim() || '')
+                    .join(' ');
+
+                if (headerText.includes('วันที่เข้ารับบริการ') && headerText.includes('หน่วยงาน')) {
+                    const rows = table.querySelectorAll('tbody tr, tr');
+                    for (const row of rows) {
+                        const cells = [...row.querySelectorAll('td')]
+                            .map(td => td.textContent?.trim() || '')
+                            .filter(Boolean);
+
+                        if (cells.length >= 2 && /\d{1,2}\/\d{1,2}\/\d{4}/.test(cells[0])) {
+                            result.history.push({ date: cells[0], org: cells[1] });
+                        }
+                    }
+                    break;
+                }
+            }
+
+            return result;
+        });
+    } catch {
+        return { vctCode: null, history: [] };
+    }
+}
+
+/**
  * Search for existing VCT code by PID.
  * Returns the most recent VCT code or null.
  */
@@ -1687,11 +1734,34 @@ async function run() {
                                     message: `🔍 VCT ซ้ำ — กำลังค้นหา code เดิม... (${i + 1}/${total})`,
                                 }, 300);
 
+                                // First: try to read VCT code + history directly from the
+                                // current error page — NAP Plus shows cross-org info here
+                                // that the org-scoped search page hides.
+                                const pageInfo = await extractVctPageInfo(page);
+                                let historyNote = '';
+
+                                if (pageInfo.vctCode) {
+                                    vctCode = pageInfo.vctCode;
+                                    fromLookup = true;
+                                    log(jobId, `  Record ${i + 1}: ค้นพบ VCT จากหน้าปัจจุบัน = ${vctCode}`);
+                                }
+
+                                if (pageInfo.history.length > 0) {
+                                    const snippet = pageInfo.history
+                                        .slice(0, 3)
+                                        .map(h => `${h.date} → ${h.org}`)
+                                        .join(' | ');
+                                    historyNote = ` (ประวัติ: ${snippet})`;
+                                    log(jobId, `  Record ${i + 1}: ประวัติการให้คำปรึกษา — ${snippet}`);
+                                }
+
                                 try {
-                                    vctCode = await lookupExistingVCT(page, item.id_card);
-                                    if (vctCode) {
-                                        log(jobId, `  Record ${i + 1}: ค้นพบ VCT เดิม = ${vctCode}`);
-                                        fromLookup = true;
+                                    if (!vctCode) {
+                                        vctCode = await lookupExistingVCT(page, item.id_card);
+                                        if (vctCode) {
+                                            log(jobId, `  Record ${i + 1}: ค้นพบ VCT เดิม (search page) = ${vctCode}`);
+                                            fromLookup = true;
+                                        }
                                     }
 
                                     labCode = await lookupExistingLab(page, item.id_card);
@@ -1733,19 +1803,21 @@ async function run() {
                                     }
 
                                     if (!vctCode) {
-                                        // Lookup failed — report original error
+                                        // Lookup failed — report original error + history hint
+                                        const enriched = errMsg + historyNote;
                                         if (!isDryRun && cbUrl) {
-                                            await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null, cbStaff, formType));
+                                            await sendCallback(cbUrl, buildErrorCallback(item, jobFy, enriched, null, cbStaff, formType));
                                         }
-                                        throw vctErr;
+                                        throw new Error(enriched);
                                     }
                                 } catch (lookupErr) {
                                     if (lookupErr === vctErr) throw lookupErr;
                                     log(jobId, `  Record ${i + 1}: Lookup failed = ${lookupErr.message}`);
+                                    const enriched = errMsg + historyNote;
                                     if (!isDryRun && cbUrl) {
-                                        await sendCallback(cbUrl, buildErrorCallback(item, jobFy, errMsg, null, cbStaff, formType));
+                                        await sendCallback(cbUrl, buildErrorCallback(item, jobFy, enriched, null, cbStaff, formType));
                                     }
-                                    throw vctErr;
+                                    throw new Error(enriched);
                                 }
                             } else {
                                 // Non-duplicate error
