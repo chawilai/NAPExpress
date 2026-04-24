@@ -1858,57 +1858,90 @@ async function run() {
                     }
 
                     // Step 2: Request Lab (if needed and not already done)
+                    // Retry pattern: check-before-retry to avoid NAP duplicates on timeout.
                     if (vctCode && item.request_lab && !skipLab) {
-                        try {
-                            await ably?.publish('job:record:filling', {
-                                jobId, index: i + 1, total,
-                                message: `🔬 กำลังบันทึก Request Lab HIV... (${i + 1}/${total})`,
-                            }, 500);
-                            if (!isDryRun) {
-                                labCode = await fillAndSubmitLabRequest(page, item, false);
-                            } else {
-                                labCode = await fillAndSubmitLabRequest(page, item, true);
-                            }
-                            log(jobId, `  Record ${i + 1}: Lab = ${labCode}`);
+                        const MAX_LAB_RETRIES = 2;
+                        let labAttempts = 0;
+                        let labDone = false;
 
-                            // Callback #2: Lab code
-                            if (labCode && !isDryRun && cbUrl) {
-                                await ably?.publish('job:record:success', {
-                                    jobId, index: i + 1, total, labCode, uic, pidMasked,
-                                    message: `✅ Lab สำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | ANTIHIV: ${labCode}`,
+                        while (!labDone) {
+                            try {
+                                await ably?.publish('job:record:filling', {
+                                    jobId, index: i + 1, total,
+                                    message: `🔬 กำลังบันทึก Request Lab HIV... (${i + 1}/${total})`,
+                                }, 500);
+                                labCode = await fillAndSubmitLabRequest(page, item, isDryRun);
+                                log(jobId, `  Record ${i + 1}: Lab = ${labCode}`);
+
+                                if (labCode && !isDryRun && cbUrl) {
+                                    await ably?.publish('job:record:success', {
+                                        jobId, index: i + 1, total, labCode, uic, pidMasked,
+                                        message: `✅ Lab สำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | ANTIHIV: ${labCode}`,
+                                    }, 300);
+                                    await sendCallback(cbUrl, buildLabCallback(item, jobFy, labCode, cbStaff));
+                                }
+                                labDone = true;
+                            } catch (labErr) {
+                                log(jobId, `  Record ${i + 1}: Lab error (try ${labAttempts + 1}) = ${labErr.message}`);
+
+                                // Safety: check if Lab was actually created before retrying
+                                try {
+                                    const existingLab = await lookupExistingLab(page, item.id_card);
+                                    if (existingLab) {
+                                        labCode = existingLab;
+                                        log(jobId, `  Record ${i + 1}: Lab พบในระบบแล้ว = ${labCode} — ใช้ค่าเดิม`);
+                                        if (!isDryRun && cbUrl) {
+                                            const labCb = buildLabCallback(item, jobFy, labCode, cbStaff);
+                                            labCb.nap_comment = 'Lab ดึงค่าเดิม หลัง error';
+                                            await sendCallback(cbUrl, labCb);
+                                            await ably?.publish('job:record:success', {
+                                                jobId, index: i + 1, total, labCode, uic, pidMasked,
+                                                message: `🔄 Lab ดึงค่าเดิม (${i + 1}/${total}) | ANTIHIV: ${labCode}`,
+                                            }, 300);
+                                        }
+                                        labDone = true;
+                                        break;
+                                    }
+                                } catch (lookupErr) {
+                                    log(jobId, `  Record ${i + 1}: Lab lookup failed: ${lookupErr.message}`);
+                                }
+
+                                if (labAttempts < MAX_LAB_RETRIES) {
+                                    labAttempts++;
+                                    log(jobId, `  Record ${i + 1}: Lab retry ${labAttempts}/${MAX_LAB_RETRIES}`);
+                                    await ably?.publish('job:preparing', {
+                                        jobId, total,
+                                        message: `🔄 Lab ตอบสนองช้า — ลองใหม่ (${labAttempts}/${MAX_LAB_RETRIES})... (${i + 1}/${total})`,
+                                    }, 300);
+                                    continue;
+                                }
+
+                                await ably?.publish('job:record:failed', {
+                                    jobId, index: i + 1, total, error: humanError(labErr), uic,
+                                    message: `❌ Lab ล้มเหลว (${i + 1}/${total}) | ${humanError(labErr)}`,
                                 }, 300);
-                                await sendCallback(cbUrl, buildLabCallback(item, jobFy, labCode, cbStaff));
+                                labDone = true;
                             }
-
-                        } catch (labErr) {
-                            log(jobId, `  Record ${i + 1}: Lab error = ${labErr.message}`);
-                            await ably?.publish('job:record:failed', {
-                                jobId, index: i + 1, total, error: humanError(labErr), uic,
-                                message: `❌ Lab ล้มเหลว (${i + 1}/${total}) | ${humanError(labErr)}`,
-                            }, 300);
                         }
                     }
 
                     // Step 3: Test Result (runs with new or existing labCode)
+                    // Retry pattern: check-before-retry + browser-restart on crash.
                     if (labCode && item.test_result && item.hiv_result) {
+                        const MAX_RESULT_RETRIES = 2;
                         let resultAttempts = 0;
-                        const MAX_RESULT_RETRIES = 1;
+                        let resultDone = false;
 
-                        while (true) {
+                        while (!resultDone) {
                             try {
                                 await ably?.publish('job:record:filling', {
                                     jobId, index: i + 1, total,
                                     message: `🧪 กำลังลงผลตรวจ HIV... (${i + 1}/${total})`,
                                 }, 500);
                                 const serviceDate = item.service_date;
-                                if (!isDryRun) {
-                                    await fillAndSubmitHivResult(page, null, null, labCode, serviceDate, item.hiv_result, false);
-                                } else {
-                                    await fillAndSubmitHivResult(page, null, null, labCode, serviceDate, item.hiv_result, true);
-                                }
+                                await fillAndSubmitHivResult(page, null, null, labCode, serviceDate, item.hiv_result, isDryRun);
                                 log(jobId, `  Record ${i + 1}: Result = ${item.hiv_result}`);
 
-                                // Callback #3: Test result
                                 if (!isDryRun && cbUrl) {
                                     await ably?.publish('job:record:success', {
                                         jobId, index: i + 1, total, uic, pidMasked,
@@ -1916,28 +1949,60 @@ async function run() {
                                     }, 300);
                                     await sendCallback(cbUrl, buildResultCallback(item, jobFy, item.hiv_result, cbStaff));
                                 }
-                                break;
+                                resultDone = true;
                             } catch (resultErr) {
-                                const isBrowserCrash = resultErr.message?.includes('Target page') || resultErr.message?.includes('browser has been closed');
+                                log(jobId, `  Record ${i + 1}: Result error (try ${resultAttempts + 1}) = ${resultErr.message}`);
 
-                                if (isBrowserCrash && resultAttempts < MAX_RESULT_RETRIES) {
-                                    resultAttempts++;
-                                    log(jobId, `  Record ${i + 1}: HIV Result crash — restarting browser and retrying (${resultAttempts}/${MAX_RESULT_RETRIES})`);
+                                // Safety: check if Result was already recorded before retrying
+                                try {
+                                    const existing = await lookupExistingResult(page, labCode);
+                                    if (existing.hasResult) {
+                                        log(jobId, `  Record ${i + 1}: ผลตรวจบันทึกแล้ว = ${existing.result} — ใช้ค่าเดิม`);
+                                        if (!isDryRun && cbUrl) {
+                                            const resultCb = buildResultCallback(item, jobFy, existing.result, cbStaff);
+                                            resultCb.nap_comment = 'Result ดึงค่าเดิม หลัง error';
+                                            await sendCallback(cbUrl, resultCb);
+                                            await ably?.publish('job:record:success', {
+                                                jobId, index: i + 1, total, uic, pidMasked,
+                                                message: `🔄 ลงผลดึงค่าเดิม (${i + 1}/${total}) | ผล: ${existing.result}`,
+                                            }, 300);
+                                        }
+                                        resultDone = true;
+                                        break;
+                                    }
+                                } catch (lookupErr) {
+                                    log(jobId, `  Record ${i + 1}: Result lookup failed: ${lookupErr.message}`);
+                                }
+
+                                // Browser crash → restart before retry
+                                const isBrowserCrash = resultErr.message?.includes('Target page') || resultErr.message?.includes('browser has been closed');
+                                if (isBrowserCrash) {
+                                    log(jobId, `  Record ${i + 1}: Result browser crash — restarting browser`);
                                     await ably?.publish('job:preparing', {
                                         jobId, total,
                                         message: `🔄 เบราว์เซอร์ขัดข้อง — กำลังลงผลใหม่... (${i + 1}/${total})`,
                                     }, 500);
                                     try { await workBrowser.close(); } catch {}
                                     ({ browser: workBrowser, page } = await createWorkBrowser());
+                                }
+
+                                if (resultAttempts < MAX_RESULT_RETRIES) {
+                                    resultAttempts++;
+                                    log(jobId, `  Record ${i + 1}: Result retry ${resultAttempts}/${MAX_RESULT_RETRIES}`);
+                                    if (!isBrowserCrash) {
+                                        await ably?.publish('job:preparing', {
+                                            jobId, total,
+                                            message: `🔄 ลงผลตอบสนองช้า — ลองใหม่ (${resultAttempts}/${MAX_RESULT_RETRIES})... (${i + 1}/${total})`,
+                                        }, 300);
+                                    }
                                     continue;
                                 }
 
-                                log(jobId, `  Record ${i + 1}: Result error = ${resultErr.message}`);
                                 await ably?.publish('job:record:failed', {
                                     jobId, index: i + 1, total, error: humanError(resultErr), uic,
                                     message: `❌ ลงผล HIV ล้มเหลว (${i + 1}/${total}) | ${humanError(resultErr)}`,
                                 }, 300);
-                                break;
+                                resultDone = true;
                             }
                         }
                     }
