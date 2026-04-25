@@ -867,7 +867,7 @@ async function fillAndSubmitVCT(page, item, dryRun = false) {
                 condomCheckboxControl(condomY);
             }
         }
-    }, { kp, kpIndex, uic, sti: item.sti || {}, source: item.source || '', sourceType: item.source_type || '' });
+    }, { kp, kpIndex, uic, sti: item.sti || {}, source: item.source || '', sourceType: item.source_type || item.sourceType || '' });
 
     // STI sub-option: when no STI results → "ส่งต่อ" + "ไม่ได้ตรวจ"
     const sti = item.sti || {};
@@ -1568,9 +1568,20 @@ async function run() {
         // Phase 2: HEADLESS browser — fill forms with session cookies
         // (dmis.nhso.go.th is NOT blocked by GDCC in headless)
         // ============================================================
+        let prepMessage = `📋 กำลังเตรียมข้อมูล ${total} รายการ...`;
+        if (isVCT) {
+            const readSrc = (it) => it.source_type || it.sourceType || '';
+            const dicCount = (items || []).filter(it => readSrc(it) === 'DIC').length;
+            const mobileCount = (items || []).filter(it => readSrc(it) === 'Mobile').length;
+            const legacyCount = total - dicCount - mobileCount;
+            log(jobId, `VCT source_type breakdown: DIC=${dicCount}, Mobile=${mobileCount}, default(legacy)=${legacyCount}`);
+            if (dicCount + mobileCount > 0) {
+                prepMessage += ` (DIC: ${dicCount}, Mobile: ${mobileCount}${legacyCount > 0 ? `, default: ${legacyCount}` : ''})`;
+            }
+        }
         await ably?.publish('job:preparing', {
             jobId, total,
-            message: `📋 กำลังเตรียมข้อมูล ${total} รายการ...`,
+            message: prepMessage,
         }, 1000);
 
         const BATCH_SIZE = 25; // Restart browser every N records to prevent memory leak
