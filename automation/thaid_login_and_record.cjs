@@ -1744,6 +1744,34 @@ async function run() {
                     let skipVCT = !!vctCode;
                     let skipLab = !!labCode;
                     let fromLookup = false;
+                    let labReplaced = false;
+
+                    // Pre-flight: validate that the supplied nap_code (ANTIHIV) belongs
+                    // to today's visit. CAREMAT may have stored a stale code from the
+                    // earlier date-blind lookup bug; if we trust it blindly, today's
+                    // HIV result lands on the wrong Lab record again. Search NAP filtered
+                    // by the visit date — if the supplied code doesn't match, drop it
+                    // and let Step 2 mint a fresh ANTIHIV.
+                    if (labCode && skipLab) {
+                        const expectedDate = item.hiv_labreq_date || item.service_date;
+                        if (expectedDate) {
+                            try {
+                                const napAntihiv = await lookupExistingLab(page, item.id_card, expectedDate);
+                                if (napAntihiv !== labCode) {
+                                    log(jobId, `  Record ${i + 1}: nap_code=${labCode} ไม่ตรงวันที่ ${expectedDate} — สร้าง Lab ใหม่ (พบใน NAP: ${napAntihiv || 'ไม่มี'})`);
+                                    await ably?.publish('job:record:filling', {
+                                        jobId, index: i + 1, total,
+                                        message: `🔍 ANTIHIV เดิมไม่ตรงวันที่ — สร้างใหม่ (${i + 1}/${total})`,
+                                    }, 300);
+                                    labCode = napAntihiv;
+                                    skipLab = !!labCode;
+                                    labReplaced = true;
+                                }
+                            } catch (validationErr) {
+                                log(jobId, `  Record ${i + 1}: validate nap_code ล้มเหลว (${validationErr.message}) — ใช้ค่าที่ส่งมา`);
+                            }
+                        }
+                    }
 
                     // Step 1: Record VCT
                     if (skipVCT && skipLab && item.test_result) {
@@ -1923,7 +1951,11 @@ async function run() {
                                         jobId, index: i + 1, total, labCode, uic, pidMasked,
                                         message: `✅ Lab สำเร็จ (${i + 1}/${total}) | PID: ${pidMasked} | ANTIHIV: ${labCode}`,
                                     }, 300);
-                                    await sendCallback(cbUrl, buildLabCallback(item, jobFy, labCode, cbStaff));
+                                    const labCb = buildLabCallback(item, jobFy, labCode, cbStaff);
+                                    if (labReplaced) {
+                                        labCb.nap_comment = 'Lab สร้างใหม่ — แทนที่ ANTIHIV เก่าที่วันที่ไม่ตรง';
+                                    }
+                                    await sendCallback(cbUrl, labCb);
                                 }
                                 labDone = true;
                             } catch (labErr) {
