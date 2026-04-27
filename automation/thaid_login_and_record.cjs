@@ -1425,10 +1425,16 @@ async function lookupExistingVCT(page, pid) {
 }
 
 /**
- * Search for existing ANTIHIV code by PID.
- * Returns the most recent ANTIHIV code or null.
+ * Search for existing ANTIHIV code by PID, optionally filtered by lab-request date.
+ *
+ * Lab Request is created per visit (not per patient), so reusing the most recent
+ * ANTIHIV across visits would record today's HIV result against an old lab — wrong
+ * data integrity. When a labDate (Thai BE format DD/MM/YYYY) is provided we
+ * constrain the search to that exact date and only return a code that belongs
+ * to the same visit. If no date is given we fall back to the legacy "first row
+ * by PID" behaviour.
  */
-async function lookupExistingLab(page, pid) {
+async function lookupExistingLab(page, pid, labDate = null) {
     await page.goto(NAP_URLS.searchHivLab, { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForLoadState('networkidle').catch(() => {});
 
@@ -1436,11 +1442,17 @@ async function lookupExistingLab(page, pid) {
         document.getElementById('actionName').value = 'search';
     });
     await page.fill('input#pid', pid);
+
+    if (labDate) {
+        await page.fill('input#hiv_labreq_date', labDate);
+        await page.fill('input#e_hiv_labreq_date', labDate);
+    }
+
     await page.click('input[name="cmdSearch"]');
     await page.waitForLoadState('networkidle').catch(() => {});
     await delay(1000);
 
-    // Extract ANTIHIV code from first row
+    // Extract ANTIHIV code from first row of the (date-filtered) result table
     const labCode = await page.evaluate(() => {
         const rows = document.querySelectorAll('table.result tbody tr');
         for (const row of rows) {
@@ -1797,7 +1809,7 @@ async function run() {
                                         }
                                     }
 
-                                    labCode = await lookupExistingLab(page, item.id_card);
+                                    labCode = await lookupExistingLab(page, item.id_card, item.hiv_labreq_date || item.service_date);
                                     if (labCode) {
                                         log(jobId, `  Record ${i + 1}: ค้นพบ ANTIHIV เดิม = ${labCode}`);
                                         skipLab = true;
@@ -1919,7 +1931,7 @@ async function run() {
 
                                 // Safety: check if Lab was actually created before retrying
                                 try {
-                                    const existingLab = await lookupExistingLab(page, item.id_card);
+                                    const existingLab = await lookupExistingLab(page, item.id_card, item.hiv_labreq_date || item.service_date);
                                     if (existingLab) {
                                         labCode = existingLab;
                                         log(jobId, `  Record ${i + 1}: Lab พบในระบบแล้ว = ${labCode} — ใช้ค่าเดิม`);
